@@ -241,6 +241,14 @@ const LayoutContent: FC = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/notifications/unread"
+                element={
+                  <ProtectedRoute>
+                    <Notification />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Post-related routes with lazy loading */}
               <Route
