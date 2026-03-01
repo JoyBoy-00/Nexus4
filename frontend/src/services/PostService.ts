@@ -113,12 +113,17 @@ export async function getRecentPostsService(page?: number, limit?: number) {
   }
 }
 
-export async function getFeedService(page?: number, limit?: number) {
+export async function getFeedService(
+  page?: number,
+  limit?: number,
+  scope: 'all' | 'following' = 'all'
+) {
   try {
     const { data } = await api.get('/posts/feed', {
       params: {
         page,
         limit,
+        scope,
       },
     });
     return data;
@@ -130,12 +135,17 @@ export async function getFeedService(page?: number, limit?: number) {
   }
 }
 
-export async function getCommunityFeedService(page?: number, limit?: number) {
+export async function getCommunityFeedService(
+  page?: number,
+  limit?: number,
+  scope: 'all' | 'member' | 'managed' = 'all'
+) {
   try {
     const { data } = await api.get('/posts/community-feed', {
       params: {
         page,
         limit,
+        scope,
       },
     });
     return data;
