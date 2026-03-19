@@ -372,6 +372,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                     avatarUrl: project.owner?.profile?.avatarUrl || '',
                   },
                 }}
+                showProfilePopup={false}
                 avatarSize={30}
                 showRoleBadge={false}
                 showYouBadge={false}
@@ -593,6 +594,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                           avatarUrl: project.owner?.profile?.avatarUrl || '',
                         },
                       }}
+                      showProfilePopup={false}
                       avatarSize={40}
                       linkToProfile={false}
                       showAvatar
