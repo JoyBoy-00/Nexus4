@@ -1,9 +1,6 @@
 import { FC } from 'react';
 import { IconButton, Tooltip } from '@mui/material';
-import {
-  LightMode as LightModeIcon,
-  DarkMode as DarkModeIcon,
-} from '@mui/icons-material';
+import { Sun, Moon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -30,9 +27,9 @@ const ThemeToggle: FC = () => {
             transition={{ duration: 0.5 }}
           >
             {isDark ? (
-              <LightModeIcon sx={{ color: '#facc15' }} />
+              <Sun color="#facc15" size={22} />
             ) : (
-              <DarkModeIcon sx={{ color: '#22c55e' }} />
+              <Moon color="#22c55e" size={22} />
             )}
           </motion.div>
         </IconButton>

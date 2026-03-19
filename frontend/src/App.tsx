@@ -91,23 +91,18 @@ const AppSidebarNexus = lazy(() =>
 );
 
 // Import context providers (MUST be non-lazy for proper context setup)
-import ProfileProvider from './contexts/ProfileContext';
-import PostProvider from './contexts/PostContext';
-import { SubCommunityProvider } from './contexts/SubCommunityContext';
-import DashboardProvider from './contexts/DashBoardContext';
-import ShowcaseProvider from './contexts/ShowcaseContext';
-import StartupProvider from './contexts/StartupContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
-import { NotificationProvider } from './contexts/NotificationContext';
-import { ReportProvider } from './contexts/reportContext';
-import { GamificationProvider } from './contexts/GamificationContext';
-import { EventProvider } from './contexts/eventContext';
-import TagProvider from './contexts/TagContext';
-import { EngagementProvider } from './contexts/engagementContext';
-import { NewsProvider } from './contexts/NewsContext';
-import { EngagementService } from './services/engagementService';
 import { LandingPageProvider } from './contexts/LandingPageContext';
+
+// Lazy-loaded context providers — only pulled in when the user is authenticated
+// or when the specific route is visited, keeping the landing page bundle small.
+const AuthShell = lazy(() => import('./components/Auth/AuthShell'));
+const DashboardProvider = lazy(() => import('./contexts/DashBoardContext'));
+const ShowcaseProvider = lazy(() => import('./contexts/ShowcaseContext'));
+const StartupProvider = lazy(() => import('./contexts/StartupContext'));
+const PostProvider = lazy(() => import('./contexts/PostContext'));
+const TagProvider = lazy(() => import('./contexts/TagContext'));
 
 // Loading component for Suspense fallback
 const LoadingSpinner: FC = () => (
@@ -615,33 +610,13 @@ const Layout: FC = () => {
   );
 };
 
-const engagementService = new EngagementService();
-
-const AuthenticatedProviders: FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+const AuthGate: FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-
-  if (!user) {
-    return <>{children}</>;
-  }
-
+  if (!user) return <>{children}</>;
   return (
-    <NotificationProvider>
-      <EngagementProvider engagementService={engagementService}>
-        <ReportProvider>
-          <EventProvider>
-            <SubCommunityProvider>
-              <GamificationProvider>
-                <NewsProvider>
-                  <ProfileProvider>{children}</ProfileProvider>
-                </NewsProvider>
-              </GamificationProvider>
-            </SubCommunityProvider>
-          </EventProvider>
-        </ReportProvider>
-      </EngagementProvider>
-    </NotificationProvider>
+    <Suspense fallback={<LoadingSpinner />}>
+      <AuthShell>{children}</AuthShell>
+    </Suspense>
   );
 };
 
@@ -657,9 +632,9 @@ function App() {
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
           <AuthProvider>
-            <AuthenticatedProviders>
+            <AuthGate>
               <Layout />
-            </AuthenticatedProviders>
+            </AuthGate>
           </AuthProvider>
         </SnackbarProvider>
       </ThemeProvider>
