@@ -516,6 +516,7 @@ const GamificationPage: FC = () => {
                               name: entry.user?.name || 'Anonymous User',
                               role: entry.user?.role || undefined,
                             }}
+                            showProfilePopup={false}
                             variant="body1"
                             fontWeight={600}
                           />
