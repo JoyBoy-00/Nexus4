@@ -9,6 +9,9 @@ import {
   ReactNode,
 } from 'react';
 import { subCommunityService } from '../services/subCommunityService';
+import { useSubCommunityMembership } from './hooks/useSubCommunityMembership';
+import { useSubCommunityMyCommunities } from './hooks/useSubCommunityMyCommunities';
+import { useSubCommunityTypeListing } from './hooks/useSubCommunityTypeListing';
 import {
   SubCommunity,
   SubCommunityMember,
@@ -23,7 +26,6 @@ import {
   SubCommunityFilterParams,
 } from '../types/subCommunity';
 import { useAuth } from './AuthContext';
-import { getErrorMessage } from '@/utils/errorHandler';
 
 interface SubCommunityContextType {
   // State
@@ -244,57 +246,15 @@ const SubCommunityContext = createContext<SubCommunityContextType>({
   sectionLoadInProgress: false,
 });
 
-// Simple semaphore to limit concurrent network loads for section fetching.
-// Allows a small number of concurrent `getSubCommunityByType` requests to
-// avoid bursts when many IntersectionObservers fire together.
-class Semaphore {
-  private permits: number;
-  private queue: Array<() => void> = [];
-
-  constructor(maxConcurrent: number) {
-    this.permits = maxConcurrent;
-  }
-
-  acquire(): Promise<() => void> {
-    return new Promise((resolve) => {
-      const tryAcquire = () => {
-        if (this.permits > 0) {
-          this.permits--;
-          resolve(() => {
-            this.permits++;
-            const next = this.queue.shift();
-            if (next) next();
-          });
-        } else {
-          this.queue.push(tryAcquire);
-        }
-      };
-      tryAcquire();
-    });
-  }
-}
-
+// When any section-level load is in progress (one at a time due to semaphore)
+// this flag is true. Consumers can use it to block scrolling or show a
+// global skeleton indicator.
 export const SubCommunityProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [subCommunities, setSubCommunities] = useState<SubCommunity[]>([]);
-  const [subCommunityCache, setSubCommunityCache] = useState<
-    Record<string, SubCommunityTypeResponse>
-  >({});
   const [currentSubCommunity, setCurrentSubCommunity] =
     useState<SubCommunity | null>(null);
-  const [subCommunitiesByType, setSubCommunitiesByType] = useState<
-    SubCommunity[]
-  >([]);
-  const [types, setTypes] = useState<SubCommunityType[]>([]);
-  const [members, setMembers] = useState<SubCommunityMember[]>([]);
-  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
-  const [creationRequests, setCreationRequests] = useState<
-    SubCommunityCreationRequest[]
-  >([]);
   const [loading, setLoading] = useState(false);
-  const [activeFilters, setActiveFiltersState] =
-    useState<SubCommunityFilterParams>({});
   // Per-action loading flags to avoid global page reloads when mutating
   // specific entities (e.g. removing a member, requesting to join).
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
@@ -314,34 +274,6 @@ export const SubCommunityProvider: FC<{ children: ReactNode }> = ({
   // global skeleton indicator.
   const [sectionLoadInProgress, setSectionLoadInProgress] = useState(false);
   const [error, setErrorState] = useState('');
-  // My communities grouped response (owned/moderated/member)
-  const [mySubCommunities, setMySubCommunities] = useState<{
-    owned: SubCommunityTypeResponse;
-    moderated: SubCommunityTypeResponse;
-    member: SubCommunityTypeResponse;
-  } | null>(null);
-  // Idempotent/load guards to avoid duplicate network requests
-  const typesFetchPromiseRef = useRef<Promise<SubCommunityType[]> | null>(null);
-  // Track recent failure to avoid immediate retry storms when network is flaky
-  const typesFailureAtRef = useRef<number | null>(null);
-  const TYPES_RETRY_BACKOFF_MS = 30_000; // 30 seconds
-  const [allLoaded, setAllLoaded] = useState(false);
-  const allFetchPromiseRef = useRef<Promise<void> | null>(null);
-  // Track recent failure for 'all' load to avoid retry storms when backend is down
-  const allFailureAtRef = useRef<number | null>(null);
-  const ALL_RETRY_BACKOFF_MS = 30_000; // 30 seconds
-  // track current loaded page per type and in-flight promises per type+page
-  const [subCommunityPages, setSubCommunityPages] = useState<
-    Record<string, number>
-  >({});
-  const inFlightTypePage = useRef<Record<string, Promise<unknown> | null>>({});
-  const activeFilterKeyRef = useRef<string>('');
-  const scheduledQueueRef = useRef<string[]>([]);
-  const queueProcessingRef = useRef(false);
-  // per-type loading state to trigger re-renders for UI
-  const [subCommunityLoadingByType, setSubCommunityLoadingByType] = useState<
-    Record<string, boolean>
-  >({});
 
   const { user } = useAuth();
 
@@ -353,190 +285,56 @@ export const SubCommunityProvider: FC<{ children: ReactNode }> = ({
     setErrorState('');
   }, []);
 
-  const normalizeFilters = useCallback((filters?: SubCommunityFilterParams) => {
-    return {
-      privacy:
-        filters?.privacy && filters.privacy !== 'all'
-          ? filters.privacy
-          : undefined,
-      membership:
-        filters?.membership && filters.membership !== 'all'
-          ? filters.membership
-          : undefined,
-      sort: filters?.sort || undefined,
-      minMembers:
-        typeof filters?.minMembers === 'number' && filters.minMembers > 0
-          ? Math.floor(filters.minMembers)
-          : undefined,
-    } as SubCommunityFilterParams;
-  }, []);
+  // Simple semaphore to limit concurrent network loads for section fetching.
+  // Allows one concurrent load at a time to avoid bursts when many
+  // IntersectionObservers fire together.
+  const semaphoreRef = useRef({ permits: 1, queue: [] as Array<() => void> });
 
-  const buildFilterKey = useCallback(
-    (filters?: SubCommunityFilterParams) => {
-      const normalized = normalizeFilters(filters);
-      return `${normalized.privacy || ''}-${normalized.membership || ''}-${normalized.sort || ''}-${normalized.minMembers || ''}`;
-    },
-    [normalizeFilters]
-  );
-  activeFilterKeyRef.current = buildFilterKey(activeFilters);
-
-  const resetTypeListingState = useCallback(() => {
-    setSubCommunitiesByType([]);
-    setSubCommunityPages({});
-    setSubCommunityLoadingByType({});
-    setSubCommunityCache({});
-    inFlightTypePage.current = {};
-    scheduledQueueRef.current = [];
-  }, []);
-
-  const setActiveFilters = useCallback(
-    (filters: SubCommunityFilterParams) => {
-      const normalized = normalizeFilters(filters);
-      if (buildFilterKey(activeFilters) === buildFilterKey(normalized)) return;
-      setActiveFiltersState(normalized);
-      resetTypeListingState();
-    },
-    [activeFilters, buildFilterKey, normalizeFilters, resetTypeListingState]
-  );
-
-  const isAnySectionLoading = useCallback(() => {
-    return (
-      sectionLoadInProgress ||
-      Object.values(subCommunityLoadingByType).some((v) => !!v)
-    );
-  }, [sectionLoadInProgress, subCommunityLoadingByType]);
-
-  // Semaphore instance to throttle concurrent section loads. Put in a ref
-  // so it's stable across renders and not recreated.
-  const loadSemaphoreRef = useRef<Semaphore | null>(null);
-
-  if (loadSemaphoreRef.current === null) {
-    // set concurrency to 1 for strict sequential section loads
-    loadSemaphoreRef.current = new Semaphore(1);
-  }
-
-  const safeGetSubCommunityByType = useCallback(
-    async (
-      type: string,
-      page: number,
-      limit: number,
-      q?: string,
-      filters?: SubCommunityFilterParams
-    ) => {
-      const release = await loadSemaphoreRef.current!.acquire();
-      // mark a section load in progress so UI can block scrolling
-      setSectionLoadInProgress(true);
-      try {
-        return await subCommunityService.getSubCommunityByType(
-          type,
-          page,
-          limit,
-          q,
-          filters
-        );
-      } finally {
-        release();
-        setSectionLoadInProgress(false);
-      }
-    },
-    []
-  );
-
-  const ensureAllSubCommunities = useCallback(
-    async (forceRefresh = false) => {
-      if (!forceRefresh && allLoaded) return;
-
-      // If recent failure recorded, avoid immediate retry and fail fast
-      if (
-        allFailureAtRef.current &&
-        Date.now() - allFailureAtRef.current < ALL_RETRY_BACKOFF_MS
-      ) {
-        return Promise.reject(
-          new Error(
-            'Previous all-subcommunities load failed recently; retry later'
-          )
-        );
-      }
-
-      if (allFetchPromiseRef.current) return allFetchPromiseRef.current;
-      const p = (async () => {
-        // For the main page, fetch compact summaries to save bandwidth
-        setLoading(true);
-        // Acquire semaphore so 'all' loads are serialized with per-type loads
-        const release = await loadSemaphoreRef.current!.acquire();
-        try {
-          const data = await subCommunityService.getAllSubCommunities({
-            compact: true,
-            page: 1,
-            limit: 6,
+  const acquireSectionLoadPermit = useCallback((): Promise<() => void> => {
+    return new Promise((resolve) => {
+      const tryAcquire = () => {
+        if (semaphoreRef.current.permits > 0) {
+          semaphoreRef.current.permits--;
+          resolve(() => {
+            semaphoreRef.current.permits++;
+            const next = semaphoreRef.current.queue.shift();
+            if (next) next();
           });
-          setSubCommunities(data as SubCommunity[]);
-          setAllLoaded(true);
-        } catch (err: unknown) {
-          if (err instanceof Error) {
-            setError(err.message || 'Failed to fetch sub-communities');
-            // mark failure time so subsequent callers will back off
-            allFailureAtRef.current = Date.now();
-          } else {
-            setError('An unexpected error occurred');
-            console.error('Unexpected error:', err);
-          }
-          throw err;
-        } finally {
-          release();
-          setLoading(false);
-          allFetchPromiseRef.current = null;
+        } else {
+          semaphoreRef.current.queue.push(tryAcquire);
         }
-      })();
+      };
+      tryAcquire();
+    });
+  }, []);
 
-      allFetchPromiseRef.current = p;
-      return p;
-    },
-    [allLoaded, setError]
-  );
-
-  const getAllSubCommunities = useCallback(async () => {
-    // delegate to ensure helper without forcing a refresh
-    return ensureAllSubCommunities(false);
-  }, [ensureAllSubCommunities]);
-
-  // Idempotent loader for types to avoid duplicate network requests
-  const ensureTypes = useCallback(async () => {
-    if (types.length > 0) return types;
-
-    // If there's a very recent failure, avoid retrying immediately to
-    // prevent a storm of repeated network calls while the network is down.
-    if (
-      typesFailureAtRef.current &&
-      Date.now() - typesFailureAtRef.current < TYPES_RETRY_BACKOFF_MS
-    ) {
-      return Promise.reject(
-        new Error('Previous types load failed recently; retry later')
-      );
-    }
-
-    if (typesFetchPromiseRef.current) return typesFetchPromiseRef.current;
-
-    const p = (async () => {
-      try {
-        const t = await subCommunityService.getTypes();
-        setTypes(t);
-        // clear any previous failure marker on success
-        typesFailureAtRef.current = null;
-        return t;
-      } catch (err) {
-        console.warn('Failed to load sub-community types', err);
-        // mark failure time so subsequent callers back off
-        typesFailureAtRef.current = Date.now();
-        throw err;
-      } finally {
-        typesFetchPromiseRef.current = null;
-      }
-    })();
-
-    typesFetchPromiseRef.current = p;
-    return p;
-  }, [types]);
+  const {
+    subCommunities,
+    setSubCommunities,
+    subCommunityCache,
+    subCommunitiesByType,
+    types,
+    activeFilters,
+    setActiveFilters,
+    getAllSubCommunities,
+    ensureAllSubCommunities,
+    ensureTypes,
+    getSubCommunityByType,
+    ensureTypeLoaded,
+    loadMoreForType,
+    isLoadingForType,
+    hasMoreForType,
+    getRemainingForType,
+    isAnySectionLoading,
+    scheduleTypeLoad,
+    resetTypeCache,
+  } = useSubCommunityTypeListing({
+    setLoading,
+    setError,
+    sectionLoadInProgress,
+    setSectionLoadInProgress,
+    acquireSectionLoadPermit,
+  });
 
   const getSubCommunity = useCallback(
     async (id: string) => {
@@ -558,327 +356,6 @@ export const SubCommunityProvider: FC<{ children: ReactNode }> = ({
     },
     [setError]
   );
-
-  const getSubCommunityByType = useCallback(
-    async (
-      type: string,
-      page: number = 1,
-      limit: number = 20,
-      q?: string,
-      forceRefresh = false,
-      filters?: SubCommunityFilterParams
-    ) => {
-      const filterKey = buildFilterKey(filters);
-      const cacheKey = `${type}-${page}-${limit}-${q || ''}-${filterKey}`;
-      const isCurrentFilter = () =>
-        type === 'all' || filterKey === activeFilterKeyRef.current;
-
-      // Check cache first
-      if (!forceRefresh && subCommunityCache[cacheKey]) {
-        const cachedData = subCommunityCache[cacheKey];
-        // For specific types, update the byType state
-        if (type !== 'all' && isCurrentFilter()) {
-          setSubCommunitiesByType((prev) => {
-            // Merge with existing data, avoiding duplicates
-            const newData = [...cachedData.data];
-            const existingIds = new Set(prev.map((item) => item.id));
-            const uniqueNewData = newData.filter(
-              (item) => !existingIds.has(item.id)
-            );
-            return [...prev, ...uniqueNewData];
-          });
-        }
-        return cachedData;
-      }
-
-      setLoading(true);
-      try {
-        const response = await safeGetSubCommunityByType(
-          type,
-          page,
-          limit,
-          q,
-          filters
-        );
-
-        // Update cache
-        setSubCommunityCache((prev) => ({
-          ...prev,
-          [cacheKey]: response,
-        }));
-
-        // Ignore stale responses from previous filter states.
-        if (!isCurrentFilter()) {
-          return response;
-        }
-
-        // Update state based on type
-        if (type === 'all') {
-          setSubCommunities((prev: SubCommunity[]) => {
-            // Normalize response: service may return either an array or an
-            // object { data, pagination }. Handle both shapes safely.
-            const items = Array.isArray(response)
-              ? response
-              : response.data || [];
-            // Merge with existing data, avoiding duplicates
-            const newData = [...items];
-            const existingIds = new Set(prev.map((item) => item.id));
-            const uniqueNewData = newData.filter(
-              (item) => !existingIds.has(item.id)
-            );
-            return [...prev, ...uniqueNewData];
-          });
-        } else {
-          setSubCommunitiesByType((prev: SubCommunity[]) => {
-            // Normalize response: service may return either an array or an
-            // object { data, pagination }. Handle both shapes safely.
-            const items = Array.isArray(response)
-              ? response
-              : response.data || [];
-            // Merge with existing data, avoiding duplicates
-            const newData = [...items];
-            const existingIds = new Set(prev.map((item) => item.id));
-            const uniqueNewData = newData.filter(
-              (item) => !existingIds.has(item.id)
-            );
-            return [...prev, ...uniqueNewData];
-          });
-        }
-        return response;
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to fetch sub-communities by type');
-        } else {
-          setError('An unexpected error occurred');
-          console.error('Unexpected error:', err);
-        }
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [buildFilterKey, setError, subCommunityCache, safeGetSubCommunityByType]
-  );
-
-  // Ensure the first page for a given type is loaded (idempotent)
-  const ensureTypeLoaded = useCallback(
-    async (
-      type: string,
-      limit: number = 6,
-      q?: string,
-      filters?: SubCommunityFilterParams
-    ): Promise<void> => {
-      const resolvedFilters = filters ?? activeFilters;
-      const filterKey = buildFilterKey(resolvedFilters);
-      const key = `${type}-1-${limit}-${q || ''}-${filterKey}`;
-      if (subCommunityCache[key]) {
-        setSubCommunityPages((prev) => ({ ...prev, [type]: 1 }));
-        return;
-      }
-      if (inFlightTypePage.current[key]) {
-        // already in-flight; return the existing promise as void
-        return inFlightTypePage.current[key] as Promise<void>;
-      }
-
-      // set loading for this type so UI can show local spinner
-      setSubCommunityLoadingByType((prev) => ({ ...prev, [type]: true }));
-
-      const p: Promise<void> = (async () => {
-        try {
-          const resp = await getSubCommunityByType(
-            type,
-            1,
-            limit,
-            q,
-            false,
-            resolvedFilters
-          );
-          if (resp?.data) {
-            // mark page 1 loaded
-            setSubCommunityPages((prev) => ({ ...prev, [type]: 1 }));
-          }
-        } finally {
-          inFlightTypePage.current[key] = null;
-          setSubCommunityLoadingByType((prev) => ({ ...prev, [type]: false }));
-        }
-      })();
-
-      inFlightTypePage.current[key] = p;
-      return p;
-    },
-    [activeFilters, buildFilterKey, getSubCommunityByType, subCommunityCache]
-  );
-
-  // Load next page for a type (idempotent per target page)
-  const loadMoreForType = useCallback(
-    async (
-      type: string,
-      limit: number = 6,
-      q?: string,
-      filters?: SubCommunityFilterParams
-    ): Promise<void> => {
-      const resolvedFilters = filters ?? activeFilters;
-      const current = subCommunityPages[type] ?? 1;
-      const next = current + 1;
-      const filterKey = buildFilterKey(resolvedFilters);
-      const key = `${type}-${next}-${limit}-${q || ''}-${filterKey}`;
-      if (subCommunityCache[key]) {
-        // already loaded
-        setSubCommunityPages((prev) => ({ ...prev, [type]: next }));
-        return;
-      }
-      if (inFlightTypePage.current[key]) {
-        return inFlightTypePage.current[key] as Promise<void>;
-      }
-
-      setSubCommunityLoadingByType((prev) => ({ ...prev, [type]: true }));
-
-      const p: Promise<void> = (async () => {
-        try {
-          const resp = await getSubCommunityByType(
-            type,
-            next,
-            limit,
-            q,
-            false,
-            resolvedFilters
-          );
-          if (resp?.data) {
-            setSubCommunityPages((prev) => ({ ...prev, [type]: next }));
-          }
-        } finally {
-          inFlightTypePage.current[key] = null;
-          setSubCommunityLoadingByType((prev) => ({ ...prev, [type]: false }));
-        }
-      })();
-
-      inFlightTypePage.current[key] = p;
-      return p;
-    },
-    [
-      activeFilters,
-      buildFilterKey,
-      getSubCommunityByType,
-      subCommunityPages,
-      subCommunityCache,
-    ]
-  );
-
-  const isLoadingForType = useCallback(
-    (type: string) => {
-      return !!subCommunityLoadingByType[type];
-    },
-    [subCommunityLoadingByType]
-  );
-
-  const hasMoreForType = useCallback(
-    (
-      type: string,
-      limit: number = 6,
-      q: string = '',
-      filters?: SubCommunityFilterParams
-    ) => {
-      const resolvedFilters = filters ?? activeFilters;
-      const filterKey = buildFilterKey(resolvedFilters);
-      const page = subCommunityPages[type] ?? 1;
-      const key = `${type}-${page}-${limit}-${q || ''}-${filterKey}`;
-      const resp = subCommunityCache[key];
-      return !!resp?.pagination?.hasNext;
-    },
-    [activeFilters, buildFilterKey, subCommunityPages, subCommunityCache]
-  );
-
-  const getRemainingForType = useCallback(
-    (
-      type: string,
-      limit: number = 6,
-      q: string = '',
-      filters?: SubCommunityFilterParams
-    ): number | undefined => {
-      const resolvedFilters = filters ?? activeFilters;
-      const filterKey = buildFilterKey(resolvedFilters);
-      // Sum loaded items for this type across cached pages
-      const loadedKeys = Object.keys(subCommunityCache).filter(
-        (k) =>
-          k.startsWith(`${type}-`) && k.endsWith(`-${q || ''}-${filterKey}`)
-      );
-      const loadedCount = loadedKeys.reduce((acc, k) => {
-        const resp = subCommunityCache[k];
-        return acc + (resp?.data?.length ?? 0);
-      }, 0);
-
-      // try to read total from the latest page we have (prefer current page)
-      const currentPage = subCommunityPages[type] ?? 1;
-      const currentKey = `${type}-${currentPage}-${limit}-${q || ''}-${filterKey}`;
-      // fallback to any page for this type
-      const fallbackKey = loadedKeys[loadedKeys.length - 1];
-      const currentResp =
-        subCommunityCache[currentKey] ?? subCommunityCache[fallbackKey];
-
-      const total = currentResp?.pagination?.total;
-      if (typeof total === 'number') {
-        return Math.max(0, total - loadedCount);
-      }
-      return undefined;
-    },
-    [activeFilters, buildFilterKey, subCommunityCache, subCommunityPages]
-  );
-
-  const scheduleTypeLoad = useCallback(
-    async (
-      type: string,
-      limit = 6,
-      q?: string,
-      filters?: SubCommunityFilterParams
-    ) => {
-      const resolvedFilters = filters ?? activeFilters;
-      if (scheduledQueueRef.current.includes(type)) return;
-
-      scheduledQueueRef.current.push(type);
-
-      // Kick off processor if not already running
-      if (queueProcessingRef.current) return;
-
-      queueProcessingRef.current = true;
-      try {
-        while (scheduledQueueRef.current.length > 0) {
-          const next = scheduledQueueRef.current.shift()!;
-          try {
-            if (next === 'all') {
-              // Ensure 'all' loads use the compact loader
-              // Acquire semaphore inside ensureAllSubCommunities
-              await ensureAllSubCommunities();
-            } else {
-              await ensureTypeLoaded(next, limit, q, resolvedFilters);
-            }
-          } catch (err) {
-            // swallow and continue; retry logic is handled by the enqueuing
-            // source (LazySection will re-enqueue if necessary)
-            console.warn('Scheduled load failed for', next, err);
-          }
-          // small delay to avoid immediate bursts
-
-          await new Promise((r) => setTimeout(r, 50));
-        }
-      } finally {
-        queueProcessingRef.current = false;
-      }
-    },
-    [activeFilters, ensureAllSubCommunities, ensureTypeLoaded]
-  );
-
-  const resetTypeCache = useCallback(() => {
-    setSubCommunityCache({});
-    setSubCommunities([]);
-    setSubCommunitiesByType([]);
-    setSubCommunityPages({});
-    inFlightTypePage.current = {};
-    scheduledQueueRef.current = [];
-    queueProcessingRef.current = false;
-  }, []);
-
-  // NOTE: removed auto-fetch on mount. Consumers should call `ensureTypes()`
-  // or `ensureAllSubCommunities()` from their own lifecycle (pages/components)
 
   const createSubCommunity = useCallback(
     async (data: {
@@ -904,7 +381,7 @@ export const SubCommunityProvider: FC<{ children: ReactNode }> = ({
         setActionLoadingFlag(key, false);
       }
     },
-    [setError, setActionLoadingFlag]
+    [setError, setActionLoadingFlag, setSubCommunities]
   );
 
   const updateSubCommunity = useCallback(
@@ -929,7 +406,7 @@ export const SubCommunityProvider: FC<{ children: ReactNode }> = ({
         setLoading(false);
       }
     },
-    [setError]
+    [setError, setSubCommunities]
   );
 
   const deleteSubCommunity = useCallback(
@@ -954,353 +431,37 @@ export const SubCommunityProvider: FC<{ children: ReactNode }> = ({
         setLoading(false);
       }
     },
-    [setError]
+    [setError, setSubCommunities]
   );
 
-  const requestToJoin = useCallback(
-    async (subCommunityId: string) => {
-      const key = `requestToJoin:${subCommunityId}`;
-      setActionLoadingFlag(key, true);
-      try {
-        const joinRequest =
-          await subCommunityService.requestToJoin(subCommunityId);
-        setJoinRequests((prev: JoinRequest[]) => [...prev, joinRequest]);
-      } catch (err: unknown) {
-        setError(getErrorMessage(err));
-      } finally {
-        setActionLoadingFlag(key, false);
-      }
-    },
-    [setActionLoadingFlag, setError]
-  );
+  const {
+    members,
+    joinRequests,
+    creationRequests,
+    requestToJoin,
+    getPendingJoinRequests,
+    approveJoinRequest,
+    leaveSubCommunity,
+    removeMember,
+    updateMemberRole,
+    createSubCommunityRequest,
+    getAllSubCommunityRequests,
+    approveSubCommunityRequest,
+    rejectSubCommunityRequest,
+  } = useSubCommunityMembership({
+    userId: user?.id,
+    setError,
+    setLoading,
+    setActionLoadingFlag,
+  });
 
-  const getPendingJoinRequests = useCallback(
-    async (subCommunityId: string) => {
-      setLoading(true);
-      try {
-        const requests =
-          await subCommunityService.getPendingJoinRequests(subCommunityId);
-        setJoinRequests(requests);
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to fetch join requests');
-        } else {
-          setError('Failed to fetch join requests');
-        }
-      } finally {
-        setLoading(false);
-      }
-    },
-    [setError]
-  );
-
-  const approveJoinRequest = useCallback(
-    async (
-      subCommunityId: string,
-      joinRequestId: string,
-      dto: ApproveJoinRequestDto
-    ) => {
-      setLoading(true);
-      try {
-        const updated = await subCommunityService.approveJoinRequest(
-          subCommunityId,
-          joinRequestId,
-          dto
-        );
-        // Merge updated fields onto existing request to preserve related
-        // nested data (e.g. `user`) when the backend response omits it.
-        setJoinRequests((prev: JoinRequest[]) =>
-          prev.map((jr: JoinRequest) =>
-            jr.id === joinRequestId ? { ...jr, ...updated } : jr
-          )
-        );
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to approve join request');
-        } else {
-          setError('Failed to approve join request');
-        }
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [setError]
-  );
-
-  const leaveSubCommunity = useCallback(
-    async (subCommunityId: string) => {
-      const key = `leave:${subCommunityId}`;
-      setActionLoadingFlag(key, true);
-      try {
-        await subCommunityService.leaveSubCommunity(subCommunityId);
-        setMembers((prev: SubCommunityMember[]) =>
-          prev.filter((m: SubCommunityMember) => m.userId !== user?.id)
-        );
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to leave sub-community');
-        } else {
-          setError('Failed to leave sub-community');
-        }
-        throw err;
-      } finally {
-        setActionLoadingFlag(key, false);
-      }
-    },
-    [user, setError, setActionLoadingFlag]
-  );
-
-  const removeMember = useCallback(
-    async (subCommunityId: string, memberId: string) => {
-      const key = `removeMember:${memberId}`;
-      setActionLoadingFlag(key, true);
-      try {
-        await subCommunityService.removeMember(subCommunityId, memberId);
-        setMembers((prev: SubCommunityMember[]) =>
-          prev.filter((m: SubCommunityMember) => m.userId !== memberId)
-        );
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to remove member');
-        } else {
-          setError('Failed to remove member');
-        }
-        throw err;
-      } finally {
-        setActionLoadingFlag(key, false);
-      }
-    },
-    [setError, setActionLoadingFlag]
-  );
-
-  const updateMemberRole = useCallback(
-    async (
-      subCommunityId: string,
-      memberId: string,
-      role: SubCommunityRole
-    ) => {
-      const key = `updateMemberRole:${memberId}`;
-      setActionLoadingFlag(key, true);
-      try {
-        const updated = await subCommunityService.updateMemberRole(
-          subCommunityId,
-          memberId,
-          { role }
-        );
-        setMembers((prev: SubCommunityMember[]) =>
-          prev.map((m: SubCommunityMember) =>
-            m.id === updated.id ? updated : m
-          )
-        );
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to update member role');
-        } else {
-          setError('Failed to update member role');
-        }
-        throw err;
-      } finally {
-        setActionLoadingFlag(key, false);
-      }
-    },
-    [setError, setActionLoadingFlag]
-  );
-
-  const createSubCommunityRequest = useCallback(
-    async (dto: CreateSubCommunityRequestDto) => {
-      const key = `createSubCommunityRequest`;
-      setActionLoadingFlag(key, true);
-      try {
-        const request =
-          await subCommunityService.createSubCommunityRequest(dto);
-        setCreationRequests((prev: SubCommunityCreationRequest[]) => [
-          ...prev,
-          request,
-        ]);
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to create sub-community request');
-        } else {
-          setError('Failed to create sub-community request');
-        }
-        throw err;
-      } finally {
-        setActionLoadingFlag(key, false);
-      }
-    },
-    [setActionLoadingFlag, setError]
-  );
-
-  const getAllSubCommunityRequests = useCallback(async () => {
-    setLoading(true);
-    try {
-      const requests = await subCommunityService.getAllSubCommunityRequests();
-      setCreationRequests(requests);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || 'Failed to fetch sub-community requests');
-      } else {
-        setError('Failed to fetch sub-community requests');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [setError]);
-
-  const approveSubCommunityRequest = useCallback(
-    async (requestId: string) => {
-      const key = `approveSubCommunityRequest:${requestId}`;
-      setActionLoadingFlag(key, true);
-      try {
-        const updated =
-          await subCommunityService.approveSubCommunityRequest(requestId);
-        setCreationRequests((prev: SubCommunityCreationRequest[]) =>
-          prev.map((cr: SubCommunityCreationRequest) =>
-            cr.id === requestId ? updated : cr
-          )
-        );
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to approve sub-community request');
-        } else {
-          setError('Failed to approve sub-community request');
-        }
-        throw err;
-      } finally {
-        setActionLoadingFlag(key, false);
-      }
-    },
-    [setError, setActionLoadingFlag]
-  );
-
-  const rejectSubCommunityRequest = useCallback(
-    async (requestId: string) => {
-      const key = `rejectSubCommunityRequest:${requestId}`;
-      setActionLoadingFlag(key, true);
-      try {
-        const updated =
-          await subCommunityService.rejectSubCommunityRequest(requestId);
-        setCreationRequests((prev: SubCommunityCreationRequest[]) =>
-          prev.map((cr: SubCommunityCreationRequest) =>
-            cr.id === requestId ? updated : cr
-          )
-        );
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to reject sub-community request');
-        } else {
-          setError('Failed to reject sub-community request');
-        }
-        throw err;
-      } finally {
-        setActionLoadingFlag(key, false);
-      }
-    },
-    [setError, setActionLoadingFlag]
-  );
-
-  const fetchMySubCommunities = useCallback(
-    async (opts?: {
-      ownedPage?: number;
-      ownedLimit?: number;
-      moderatedPage?: number;
-      moderatedLimit?: number;
-      memberPage?: number;
-      memberLimit?: number;
-    }) => {
-      setLoading(true);
-      // serialize with other section loads to avoid concurrent network bursts
-      const release = await loadSemaphoreRef.current!.acquire();
-      setSectionLoadInProgress(true);
-      try {
-        // Instead of fetching all categories in parallel, only fetch the
-        // categories requested in `opts`. If no opts provided, default to
-        // fetching the 'owned' category only. Calls are performed
-        // sequentially to ensure one-at-a-time behavior.
-        const defaultEmpty = {
-          data: [],
-          pagination: {
-            page: 1,
-            limit: 0,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false,
-          },
-        } as SubCommunityTypeResponse;
-
-        let ownedResp: SubCommunityTypeResponse | undefined;
-        let moderatedResp: SubCommunityTypeResponse | undefined;
-        let memberResp: SubCommunityTypeResponse | undefined;
-
-        const shouldFetchOwned =
-          !opts ||
-          opts.ownedPage !== undefined ||
-          opts.ownedLimit !== undefined;
-        const shouldFetchModerated =
-          opts?.moderatedPage !== undefined ||
-          opts?.moderatedLimit !== undefined;
-        const shouldFetchMember =
-          opts?.memberPage !== undefined || opts?.memberLimit !== undefined;
-
-        // If no explicit category opts were passed, default to owned only.
-        if (shouldFetchOwned) {
-          ownedResp = await subCommunityService.getMyOwnedSubCommunities(
-            opts?.ownedPage ?? 1,
-            opts?.ownedLimit ?? 6
-          );
-        }
-
-        console.log(ownedResp);
-
-        if (shouldFetchModerated) {
-          moderatedResp =
-            await subCommunityService.getMyModeratedSubCommunities(
-              opts?.moderatedPage ?? 1,
-              opts?.moderatedLimit ?? 6
-            );
-        }
-
-        if (shouldFetchMember) {
-          memberResp = await subCommunityService.getMyMemberSubCommunities(
-            opts?.memberPage ?? 1,
-            opts?.memberLimit ?? 6
-          );
-        }
-
-        // Merge with any existing state so we don't clobber categories that
-        // weren't requested by the caller.
-        const combined = ((prev) => {
-          const existing = prev ?? {
-            owned: defaultEmpty,
-            moderated: defaultEmpty,
-            member: defaultEmpty,
-          };
-          return {
-            owned: ownedResp ?? existing.owned ?? defaultEmpty,
-            moderated: moderatedResp ?? existing.moderated ?? defaultEmpty,
-            member: memberResp ?? existing.member ?? defaultEmpty,
-          };
-        })(mySubCommunities);
-
-        setMySubCommunities(combined);
-        return combined;
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message || 'Failed to fetch my sub-communities');
-        } else {
-          setError('Failed to fetch my sub-communities');
-        }
-        throw err;
-      } finally {
-        release();
-        setLoading(false);
-        setSectionLoadInProgress(false);
-      }
-    },
-    [setError, mySubCommunities]
-  );
+  const { mySubCommunities, fetchMySubCommunities } =
+    useSubCommunityMyCommunities({
+      acquireSectionLoadPermit,
+      setLoading,
+      setSectionLoadInProgress,
+      setError,
+    });
 
   // Load initial data moved to consumers; use `ensureAllSubCommunities()` instead
 

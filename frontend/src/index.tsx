@@ -25,11 +25,14 @@ const validateEnvironment = () => {
     'VITE_FIREBASE_VAPID_KEY',
   ] as const;
 
-  const definedFirebase = firebaseVars.filter(
-    (key) => Boolean(import.meta.env[key]?.trim())
+  const definedFirebase = firebaseVars.filter((key) =>
+    Boolean(import.meta.env[key]?.trim())
   );
 
-  if (definedFirebase.length > 0 && definedFirebase.length < firebaseVars.length) {
+  if (
+    definedFirebase.length > 0 &&
+    definedFirebase.length < firebaseVars.length
+  ) {
     const missingFirebase = firebaseVars.filter(
       (key) => !import.meta.env[key]?.trim()
     );
