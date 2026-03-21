@@ -17,6 +17,7 @@ import { useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './route/ProtectedRoute';
 import AdminRoute from './route/AdminRoute';
 import { reportFrontendError } from '@/services/errorReportingService';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import './App.css';
 
 // Lazy load all pages for better code splitting
@@ -612,11 +613,22 @@ const Layout: FC = () => {
 
 const AuthGate: FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  if (!user) return <>{children}</>;
+  if (!user) {
+    return (
+      <>
+        {children}
+        <PWAInstallPrompt enabled={false} />
+      </>
+    );
+  }
+
   return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <AuthShell>{children}</AuthShell>
-    </Suspense>
+    <>
+      <Suspense fallback={<LoadingSpinner />}>
+        <AuthShell>{children}</AuthShell>
+      </Suspense>
+      <PWAInstallPrompt enabled />
+    </>
   );
 };
 

@@ -1,5 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import { StyledEngineProvider } from '@mui/material/styles';
+import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 import App from './App';
 
@@ -43,6 +44,8 @@ const validateEnvironment = () => {
 };
 
 validateEnvironment();
+
+registerSW({ immediate: true });
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

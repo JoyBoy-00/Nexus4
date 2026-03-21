@@ -1,6 +1,66 @@
 import { defineConfig, loadEnv, type ConfigEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const FIREBASE_SW_ENV_KEYS = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID',
+] as const;
+
+const applyFirebaseEnvTemplate = (
+  content: string,
+  env: Record<string, string>
+) =>
+  FIREBASE_SW_ENV_KEYS.reduce(
+    (updated, key) => updated.replaceAll(`__${key}__`, env[key] ?? ''),
+    content
+  );
+
+const firebaseMessagingSwEnvPlugin = (env: Record<string, string>) => ({
+  name: 'firebase-messaging-sw-env',
+  configureServer(server: {
+    middlewares: {
+      use: (
+        path: string,
+        handler: (
+          _req: unknown,
+          res: {
+            setHeader: (name: string, value: string) => void;
+            end: (body: string) => void;
+          }
+        ) => void
+      ) => void;
+    };
+  }) {
+    server.middlewares.use('/firebase-messaging-sw.js', (_req, res) => {
+      const swTemplatePath = resolve(
+        process.cwd(),
+        'public/firebase-messaging-sw.js'
+      );
+      const swTemplate = readFileSync(swTemplatePath, 'utf8');
+      const injectedContent = applyFirebaseEnvTemplate(swTemplate, env);
+
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.end(injectedContent);
+    });
+  },
+  writeBundle(options: { dir?: string; file?: string }) {
+    const outDir = options.dir ?? process.cwd();
+    const swOutputPath = resolve(outDir, 'firebase-messaging-sw.js');
+
+    const swOutput = readFileSync(swOutputPath, 'utf8');
+    const injectedOutput = applyFirebaseEnvTemplate(swOutput, env);
+
+    writeFileSync(swOutputPath, injectedOutput, 'utf8');
+  },
+});
 
 export default defineConfig(({ mode }: ConfigEnv) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -9,6 +69,47 @@ export default defineConfig(({ mode }: ConfigEnv) => {
   return {
     plugins: [
       react(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: [
+          'favicon.ico',
+          'icon-192x192.png',
+          'icon-512x512.png',
+          'icon-maskable-512x512.png',
+          'apple-touch-icon.png',
+          'offline.html',
+        ],
+        manifest: false,
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,json}'],
+          navigateFallback: 'index.html',
+          runtimeCaching: [
+            {
+              urlPattern: ({ request }) =>
+                ['style', 'script', 'worker'].includes(request.destination),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'nexus-static-assets-v1',
+              },
+            },
+            {
+              urlPattern: ({ request }) => request.destination === 'image',
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'nexus-image-assets-v1',
+              },
+            },
+            {
+              urlPattern: ({ request }) => request.destination === 'font',
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'nexus-font-assets-v1',
+              },
+            },
+          ],
+        },
+      }),
+      firebaseMessagingSwEnvPlugin(env),
       visualizer({
         open: true,
         gzipSize: true,
