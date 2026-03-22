@@ -257,7 +257,7 @@ const LayoutContent: FC = () => {
                   }
                 />
                 <Route
-                  path="/profile/:userId"
+                  path="/profile/:profileSlug"
                   element={
                     <ProtectedRoute>
                       <Profile />
