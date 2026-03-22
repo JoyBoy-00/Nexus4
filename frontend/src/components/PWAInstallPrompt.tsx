@@ -20,13 +20,20 @@ type PWAInstallPromptProps = {
 };
 
 const PROMPT_DELAY_MS = 4500;
-const AUTO_HIDE_MS = 6500;
+const DISMISS_STORAGE_KEY = 'nexus:pwa-install-prompt-dismissed';
 
 const PWAInstallPrompt = ({ enabled }: PWAInstallPromptProps) => {
   const [promptEvent, setPromptEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [open, setOpen] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.localStorage.getItem(DISMISS_STORAGE_KEY) === 'true';
+  });
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearShowTimer = useCallback(() => {
@@ -48,7 +55,7 @@ const PWAInstallPrompt = ({ enabled }: PWAInstallPromptProps) => {
       event.preventDefault();
       setPromptEvent(event as BeforeInstallPromptEvent);
 
-      if (enabled) {
+      if (enabled && !dismissed) {
         schedulePromptDisplay();
       }
     };
@@ -71,10 +78,10 @@ const PWAInstallPrompt = ({ enabled }: PWAInstallPromptProps) => {
       );
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, [enabled, schedulePromptDisplay, clearShowTimer]);
+  }, [enabled, dismissed, schedulePromptDisplay, clearShowTimer]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || dismissed) {
       clearShowTimer();
       setOpen(false);
       return;
@@ -83,7 +90,14 @@ const PWAInstallPrompt = ({ enabled }: PWAInstallPromptProps) => {
     if (promptEvent && !open) {
       schedulePromptDisplay();
     }
-  }, [enabled, promptEvent, open, clearShowTimer, schedulePromptDisplay]);
+  }, [
+    enabled,
+    dismissed,
+    promptEvent,
+    open,
+    clearShowTimer,
+    schedulePromptDisplay,
+  ]);
 
   const handleInstall = async () => {
     if (!promptEvent || installing) {
@@ -102,15 +116,18 @@ const PWAInstallPrompt = ({ enabled }: PWAInstallPromptProps) => {
     setPromptEvent(null);
   };
 
-  const handleClose = () => {
+  const handleDismiss = () => {
+    clearShowTimer();
     setOpen(false);
+    setPromptEvent(null);
+    setDismissed(true);
+    window.localStorage.setItem(DISMISS_STORAGE_KEY, 'true');
   };
 
   return (
     <Snackbar
       open={open}
-      autoHideDuration={AUTO_HIDE_MS}
-      onClose={handleClose}
+      autoHideDuration={null}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
     >
       <Paper
@@ -166,7 +183,7 @@ const PWAInstallPrompt = ({ enabled }: PWAInstallPromptProps) => {
 
         <IconButton
           size="small"
-          onClick={handleClose}
+          onClick={handleDismiss}
           aria-label="Dismiss install prompt"
           sx={{ color: 'text.secondary', ml: -0.5 }}
         >
