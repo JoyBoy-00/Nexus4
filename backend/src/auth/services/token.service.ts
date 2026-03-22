@@ -49,7 +49,23 @@ export class TokenService {
         },
       },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            isEmailVerified: true,
+            accountStatus: true,
+            profile: {
+              select: {
+                avatarUrl: true,
+                skills: { select: { name: true }, take: 10 },
+                gender: true,
+              },
+            },
+          },
+        },
       },
     });
   }
