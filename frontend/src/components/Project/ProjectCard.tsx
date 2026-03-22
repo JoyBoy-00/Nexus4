@@ -1,4 +1,4 @@
-import { FC, useState, useMemo, lazy, Suspense, memo } from 'react';
+import { FC, useState, useMemo, lazy, Suspense, memo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Chip,
@@ -58,6 +58,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
   onCollaborate,
   onViewDetails,
 }) => {
+  const FALLBACK_IMAGE = '/default-project.png';
   const { isDark } = useTheme();
   const { deleteProject, getProjectById, projectById } = useShowcase();
   const { showNotification } = useNotification();
@@ -67,10 +68,16 @@ const ProjectCard: FC<ProjectCardProps> = ({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
-  const [imageSrc, setImageSrc] = useState<string | undefined>(
-    project.imageUrl
+  const [imageSrc, setImageSrc] = useState<string>(
+    project.imageUrl || FALLBACK_IMAGE
   );
   const [triedProxy, setTriedProxy] = useState(false);
+
+  useEffect(() => {
+    setImgLoaded(false);
+    setTriedProxy(false);
+    setImageSrc(project.imageUrl || FALLBACK_IMAGE);
+  }, [project.id, project.imageUrl]);
 
   // lazy-load UpdateSection so we don't add a hard dependency at top
   const UpdateSection = useMemo(
@@ -264,7 +271,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                   }
                 }
 
-                setImageSrc('/default-project.png');
+                setImageSrc(FALLBACK_IMAGE);
                 setImgLoaded(true);
               }}
               style={{
