@@ -65,6 +65,7 @@ const firebaseMessagingSwEnvPlugin = (env: Record<string, string>) => ({
 export default defineConfig(({ mode }: ConfigEnv) => {
   const env = loadEnv(mode, process.cwd(), '');
   const CI_CHUNK_BUDGET_KB = 800;
+  const isAnalyzeBuild = mode === 'analyze' || env.VITE_ANALYZE === 'true';
 
   return {
     plugins: [
@@ -110,11 +111,16 @@ export default defineConfig(({ mode }: ConfigEnv) => {
         },
       }),
       firebaseMessagingSwEnvPlugin(env),
-      visualizer({
-        open: true,
-        gzipSize: true,
-        brotliSize: true,
-      }),
+      ...(isAnalyzeBuild
+        ? [
+            visualizer({
+              filename: 'dist/stats.html',
+              open: false,
+              gzipSize: true,
+              brotliSize: true,
+            }),
+          ]
+        : []),
     ],
     server: {
       host: true,
