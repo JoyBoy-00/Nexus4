@@ -25,6 +25,7 @@ import Popper from '@mui/material/Popper';
 import Fade from '@mui/material/Fade';
 import { ProfilePreviewResponse } from '@/services/profileService';
 import { useTheme } from '@/contexts/ThemeContext';
+import { buildProfilePath } from '@/utils/profileRoute';
 
 interface User {
   id?: string;
@@ -192,7 +193,7 @@ export const ProfileNameLink: FC<ProfileNameLinkProps> = ({
 
   const handleOnClick = () => {
     if (linkToProfile && user?.id) {
-      navigate(`/profile/${user.id}`);
+      navigate(buildProfilePath({ id: user.id, name: user.name }));
       setAnchorEl(null);
     }
   };

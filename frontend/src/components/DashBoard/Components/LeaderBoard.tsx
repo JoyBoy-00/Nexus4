@@ -336,6 +336,7 @@ const Leaderboard: FC<LeaderboardProps> = ({
                       showYouBadge={false}
                       fontSize={compact ? '0.75rem' : '0.875rem'}
                       badgeSize={10}
+                      showProfilePopup={false}
                     />
                   </Typography>
                 }

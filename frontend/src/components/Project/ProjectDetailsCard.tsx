@@ -60,6 +60,7 @@ import {
 } from '@/types/ShowcaseType';
 import { User } from '@/types/profileType';
 import { ProfileNameLink } from '@/utils/ProfileNameLink';
+import { buildProfilePath } from '@/utils/profileRoute';
 import { useShowcase } from '@/contexts/ShowcaseContext';
 const UpdateSection = lazy(() => import('./UpdateSection'));
 import { apiService } from '@/services/api';
@@ -867,7 +868,10 @@ const ProjectDetailModal: FC<ProjectDetailModalProps> = ({
                                           sx={{ cursor: 'pointer' }}
                                           onClick={() =>
                                             window.open(
-                                              `/profile/${comment.user?.id}`,
+                                              buildProfilePath({
+                                                id: comment.user?.id,
+                                                name: comment.user?.name,
+                                              }),
                                               '_blank'
                                             )
                                           }
