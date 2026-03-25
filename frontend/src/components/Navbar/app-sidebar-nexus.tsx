@@ -204,6 +204,9 @@ export function AppSidebarNexus() {
             <img
               src="/nexus.webp"
               alt="Nexus"
+              width="36"
+              height="36"
+              decoding="async"
               className="size-9 object-contain"
             />
           </motion.div>

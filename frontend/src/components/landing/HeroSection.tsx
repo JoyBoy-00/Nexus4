@@ -253,8 +253,9 @@ const HeroSection: FC<HeroSectionProps> = ({
             >
               <img
                 src={HERO_PREVIEW_IMAGE}
-                loading="lazy"
+                loading="eager"
                 decoding="async"
+                fetchPriority="high"
                 alt="Team collaboration"
                 className="absolute inset-0 w-full h-full object-cover"
               />
@@ -307,6 +308,8 @@ const HeroSection: FC<HeroSectionProps> = ({
                   src={
                     darkMode ? 'dashboardNexusDark.webp' : 'dashboardNexus.webp'
                   }
+                  loading="lazy"
+                  decoding="async"
                   alt={
                     darkMode
                       ? 'Dashboard preview in dark mode'
