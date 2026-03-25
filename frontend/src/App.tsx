@@ -5,7 +5,6 @@ import {
   Route,
   useLocation,
 } from 'react-router-dom';
-import { Box } from '@mui/material';
 import { ErrorBoundary } from 'react-error-boundary';
 import { SnackbarProvider } from 'notistack';
 import Loader from '@/utils/loader';
@@ -18,6 +17,8 @@ import ProtectedRoute from './route/ProtectedRoute';
 import AdminRoute from './route/AdminRoute';
 import { reportFrontendError } from '@/services/errorReportingService';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import SkipLink from '@/components/a11y/SkipLink';
+import PageAnnouncer from '@/components/a11y/PageAnnouncer';
 import './App.css';
 
 // Lazy load all pages for better code splitting
@@ -106,8 +107,8 @@ const TagProvider = lazy(() => import('./contexts/TagContext'));
 
 // Loading component for Suspense fallback
 const LoadingSpinner: FC = () => (
-  <Box
-    sx={{
+  <div
+    style={{
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
@@ -115,7 +116,7 @@ const LoadingSpinner: FC = () => (
     }}
   >
     <Loader fullScreen={false} />
-  </Box>
+  </div>
 );
 
 const toError = (error: unknown): Error => {
@@ -154,6 +155,7 @@ const LayoutContent: FC = () => {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const mainRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const container = contentScrollRef.current;
@@ -161,10 +163,22 @@ const LayoutContent: FC = () => {
       container.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+
+    // Focus management on route change (WCAG 2.4.3 Focus Order)
+    // Set tabIndex to -1 to allow programmatic focus without tab order
+    if (mainRef.current) {
+      mainRef.current.setAttribute('tabIndex', '-1');
+      // Focus main content after a brief delay to ensure content is rendered
+      setTimeout(() => {
+        mainRef.current?.focus();
+      }, 100);
+    }
   }, [pathname]);
 
   return (
     <div className="flex flex-col min-h-screen w-full">
+      <SkipLink />
+      <PageAnnouncer />
       {!user && (
         <Suspense fallback={null}>
           <TopNavbar />
@@ -181,11 +195,10 @@ const LayoutContent: FC = () => {
             <AppSidebarNexus />
           </Suspense>
         )}
-        <div
-          id="app-scroll-container"
-          data-app-scroll-container="true"
-          ref={contentScrollRef}
-          className="w-full flex-1 overflow-y-auto overflow-x-hidden"
+        <main
+          ref={mainRef}
+          id="main-content"
+          className="w-full flex-1 overflow-y-auto overflow-x-hidden focus:outline-none"
           style={{
             minHeight: 'calc(100vh - 64px)',
             backgroundColor: 'var(--background)',
@@ -193,386 +206,398 @@ const LayoutContent: FC = () => {
             transition: 'all 0.3s ease',
           }}
         >
-          <ErrorBoundary
-            FallbackComponent={RouteErrorFallback}
-            onError={handleRouteBoundaryError}
-            resetKeys={[pathname]}
+          <div
+            id="app-scroll-container"
+            data-app-scroll-container="true"
+            ref={contentScrollRef}
+            className="w-full flex-1"
+            style={{
+              minHeight: 'calc(100vh - 64px)',
+              backgroundColor: 'var(--background)',
+              position: 'relative',
+              transition: 'all 0.3s ease',
+            }}
           >
-            <Suspense fallback={<LoadingSpinner />}>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <LandingPageProvider>
-                      <LandingOptimized />
-                    </LandingPageProvider>
-                  }
-                />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<EnhancedRegister />} />
-                <Route
-                  path="/registration-success"
-                  element={<RegistrationSuccess />}
-                />
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <DashboardProvider>
-                        <Dashboard />
-                      </DashboardProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/document-verification"
-                  element={
-                    <AdminRoute>
-                      <AdminDocumentVerification />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/connections"
-                  element={
-                    <ProtectedRoute>
-                      <Connections />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/messages"
-                  element={
-                    <ProtectedRoute>
-                      <ChatPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <ProtectedRoute>
-                      <Profile />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/profile/:profileSlug"
-                  element={
-                    <ProtectedRoute>
-                      <Profile />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/referrals"
-                  element={
-                    <ProtectedRoute>
-                      <Referrals />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/referral-analytics"
-                  element={
-                    <ProtectedRoute>
-                      <ReferralAnalytics />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/files"
-                  element={
-                    <ProtectedRoute>
-                      <Files />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/notifications"
-                  element={
-                    <ProtectedRoute>
-                      <Notification />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/notifications/unread"
-                  element={
-                    <ProtectedRoute>
-                      <Notification />
-                    </ProtectedRoute>
-                  }
-                />
+            <ErrorBoundary
+              FallbackComponent={RouteErrorFallback}
+              onError={handleRouteBoundaryError}
+              resetKeys={[pathname]}
+            >
+              <Suspense fallback={<LoadingSpinner />}>
+                <Routes>
+                  <Route
+                    path="/"
+                    element={
+                      <LandingPageProvider>
+                        <LandingOptimized />
+                      </LandingPageProvider>
+                    }
+                  />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<EnhancedRegister />} />
+                  <Route
+                    path="/registration-success"
+                    element={<RegistrationSuccess />}
+                  />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <DashboardProvider>
+                          <Dashboard />
+                        </DashboardProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/document-verification"
+                    element={
+                      <AdminRoute>
+                        <AdminDocumentVerification />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/connections"
+                    element={
+                      <ProtectedRoute>
+                        <Connections />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/messages"
+                    element={
+                      <ProtectedRoute>
+                        <ChatPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <ProtectedRoute>
+                        <Profile />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile/:profileSlug"
+                    element={
+                      <ProtectedRoute>
+                        <Profile />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/referrals"
+                    element={
+                      <ProtectedRoute>
+                        <Referrals />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/referral-analytics"
+                    element={
+                      <ProtectedRoute>
+                        <ReferralAnalytics />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/files"
+                    element={
+                      <ProtectedRoute>
+                        <Files />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/notifications"
+                    element={
+                      <ProtectedRoute>
+                        <Notification />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/notifications/unread"
+                    element={
+                      <ProtectedRoute>
+                        <Notification />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                {/* Post-related routes with lazy loading */}
-                <Route
-                  path="/feed"
-                  element={
-                    <ProtectedRoute>
-                      <PostProvider>
+                  {/* Post-related routes with lazy loading */}
+                  <Route
+                    path="/feed"
+                    element={
+                      <ProtectedRoute>
+                        <PostProvider>
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <FeedPage />
+                          </Suspense>
+                        </PostProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/posts/:id"
+                    element={
+                      <ProtectedRoute>
+                        <PostProvider>
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <PostDetailPage />
+                          </Suspense>
+                        </PostProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/users/:userId/posts"
+                    element={
+                      <ProtectedRoute>
+                        <PostProvider>
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <UserPostsPage />
+                          </Suspense>
+                        </PostProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/subcommunities"
+                    element={
+                      <ProtectedRoute>
                         <Suspense fallback={<LoadingSpinner />}>
-                          <FeedPage />
+                          <SubCommunitiesPage />
                         </Suspense>
-                      </PostProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/posts/:id"
-                  element={
-                    <ProtectedRoute>
-                      <PostProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/subcommunities/:id"
+                    element={
+                      <ProtectedRoute>
+                        <PostProvider>
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <SubCommunityFeedPage />
+                          </Suspense>
+                        </PostProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/subcommunities/my"
+                    element={
+                      <ProtectedRoute>
                         <Suspense fallback={<LoadingSpinner />}>
-                          <PostDetailPage />
+                          <MySubCommunitiesPage />
                         </Suspense>
-                      </PostProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/users/:userId/posts"
-                  element={
-                    <ProtectedRoute>
-                      <PostProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/subcommunities/my/owned"
+                    element={
+                      <ProtectedRoute>
                         <Suspense fallback={<LoadingSpinner />}>
-                          <UserPostsPage />
+                          <MySubCommunitiesPage />
                         </Suspense>
-                      </PostProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/subcommunities"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <SubCommunitiesPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/subcommunities/:id"
-                  element={
-                    <ProtectedRoute>
-                      <PostProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/subcommunities/my/moderated"
+                    element={
+                      <ProtectedRoute>
                         <Suspense fallback={<LoadingSpinner />}>
-                          <SubCommunityFeedPage />
+                          <MySubCommunitiesPage />
                         </Suspense>
-                      </PostProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/subcommunities/my"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <MySubCommunitiesPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/subcommunities/my/owned"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <MySubCommunitiesPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/subcommunities/my/moderated"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <MySubCommunitiesPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/subcommunities/my/member"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <MySubCommunitiesPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/projects"
-                  element={
-                    <ProtectedRoute>
-                      <ShowcaseProvider>
-                        <ProjectsMainPage />
-                      </ShowcaseProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/gamification"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <Gamification />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/projects/:projectId"
-                  element={
-                    <ProtectedRoute>
-                      <ShowcaseProvider>
-                        <ProjectIdPage />
-                      </ShowcaseProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/users/:userId/projects"
-                  element={
-                    <ProtectedRoute>
-                      <ShowcaseProvider>
-                        <UserProjectPage />
-                      </ShowcaseProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/startups"
-                  element={
-                    <ProtectedRoute>
-                      <StartupProvider>
-                        <StartupsMainPage />
-                      </StartupProvider>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/search"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <SearchResultsPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/events"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <EventsPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/events/:id"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <EventDetailPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/news"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <NewsPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/news/:slug"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <NewsDetail />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/subcommunities/my/member"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <MySubCommunitiesPage />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/projects"
+                    element={
+                      <ProtectedRoute>
+                        <ShowcaseProvider>
+                          <ProjectsMainPage />
+                        </ShowcaseProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/gamification"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <Gamification />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/projects/:projectId"
+                    element={
+                      <ProtectedRoute>
+                        <ShowcaseProvider>
+                          <ProjectIdPage />
+                        </ShowcaseProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/users/:userId/projects"
+                    element={
+                      <ProtectedRoute>
+                        <ShowcaseProvider>
+                          <UserProjectPage />
+                        </ShowcaseProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/startups"
+                    element={
+                      <ProtectedRoute>
+                        <StartupProvider>
+                          <StartupsMainPage />
+                        </StartupProvider>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/search"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <SearchResultsPage />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/events"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <EventsPage />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/events/:id"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <EventDetailPage />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/news"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <NewsPage />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/news/:slug"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <NewsDetail />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
 
-                {/* Admin-only routes with lazy loading */}
-                <Route
-                  path="/admin/moderation"
-                  element={
-                    <AdminRoute>
-                      <PostProvider>
+                  {/* Admin-only routes with lazy loading */}
+                  <Route
+                    path="/admin/moderation"
+                    element={
+                      <AdminRoute>
+                        <PostProvider>
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <AdminModerationPage />
+                          </Suspense>
+                        </PostProvider>
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/reports"
+                    element={
+                      <AdminRoute>
                         <Suspense fallback={<LoadingSpinner />}>
-                          <AdminModerationPage />
+                          <ReportsPage />
                         </Suspense>
-                      </PostProvider>
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/reports"
-                  element={
-                    <AdminRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <ReportsPage />
-                      </Suspense>
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/news"
-                  element={
-                    <AdminRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <AdminNews />
-                      </Suspense>
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/events/create"
-                  element={
-                    <AdminRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <TagProvider>
-                          <CreateEventPage />
-                        </TagProvider>
-                      </Suspense>
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/moderation/subcommunities"
-                  element={
-                    <AdminRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <AdminSubCommunityModerationPage />
-                      </Suspense>
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/moderation/subcommunities/:id/join-requests"
-                  element={
-                    <AdminRoute>
-                      <Suspense fallback={<LoadingSpinner />}>
-                        <SubCommunityJoinRequestModeration />
-                      </Suspense>
-                    </AdminRoute>
-                  }
-                />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/news"
+                    element={
+                      <AdminRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <AdminNews />
+                        </Suspense>
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/events/create"
+                    element={
+                      <AdminRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <TagProvider>
+                            <CreateEventPage />
+                          </TagProvider>
+                        </Suspense>
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/moderation/subcommunities"
+                    element={
+                      <AdminRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <AdminSubCommunityModerationPage />
+                        </Suspense>
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/moderation/subcommunities/:id/join-requests"
+                    element={
+                      <AdminRoute>
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <SubCommunityJoinRequestModeration />
+                        </Suspense>
+                      </AdminRoute>
+                    }
+                  />
 
-                {/* Add more admin routes here with lazy loading as needed */}
-                {/* <Route
+                  {/* Add more admin routes here with lazy loading as needed */}
+                  {/* <Route
               path="/admin/analytics"
               element={
                 <AdminRoute>
@@ -582,11 +607,12 @@ const LayoutContent: FC = () => {
                 </AdminRoute>
               }
             /> */}
-                <Route path="*" element={<RouteUnavailable />} />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
-        </div>
+                  <Route path="*" element={<RouteUnavailable />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        </main>
       </div>
     </div>
   );
