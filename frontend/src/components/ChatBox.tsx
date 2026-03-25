@@ -176,7 +176,12 @@ const ChatBox: FC<ChatBoxProps> = ({
         </Box>
 
         {/* Messages Area */}
-        <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <Box
+          sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+          role="log"
+          aria-live="polite"
+          aria-label="Chat message list"
+        >
           {loading ? (
             <Box
               display="flex"

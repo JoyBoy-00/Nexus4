@@ -540,6 +540,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                           handleUpdateClick(e);
                         }}
                         onMouseDown={(e) => e.preventDefault()}
+                        aria-label="Update project"
                         sx={{
                           width: 36,
                           height: 36,
@@ -561,6 +562,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                           setConfirmDeleteOpen(true);
                         }}
                         onMouseDown={(e) => e.preventDefault()}
+                        aria-label="Delete project"
                         sx={{
                           width: 36,
                           height: 36,

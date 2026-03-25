@@ -557,6 +557,8 @@ const FeedPage: FC = () => {
                   role="tabpanel"
                   aria-labelledby={`feed-tab-${activeTab}`}
                   component="section"
+                  aria-live="polite"
+                  aria-label="Posts feed"
                 >
                   <Box
                     component="ul"

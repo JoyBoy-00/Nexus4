@@ -75,6 +75,7 @@ const ChatPage: FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [searching, setSearching] = useState(false);
+  const [chatAnnouncement, setChatAnnouncement] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const selectedConversation: StoreConversation | null = selectedConversationId
@@ -95,6 +96,12 @@ const ChatPage: FC = () => {
       ),
     [conversations]
   );
+
+  useEffect(() => {
+    setChatAnnouncement(
+      `${totalUnreadCount} unread message${totalUnreadCount === 1 ? '' : 's'}`
+    );
+  }, [totalUnreadCount]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -382,6 +389,14 @@ const ChatPage: FC = () => {
           gap: 1.5,
         }}
       >
+        <Box
+          className="sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {chatAnnouncement}
+        </Box>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             Messages
@@ -433,6 +448,7 @@ const ChatPage: FC = () => {
                   size="small"
                   color="primary"
                   onClick={() => setNewConversationOpen(true)}
+                  aria-label="Start new conversation"
                 >
                   <AddIcon />
                 </IconButton>
@@ -450,7 +466,13 @@ const ChatPage: FC = () => {
                     <CircularProgress />
                   </Box>
                 ) : (
-                  <List dense sx={{ p: 0 }}>
+                  <List
+                    dense
+                    sx={{ p: 0 }}
+                    role="region"
+                    aria-live="polite"
+                    aria-label="Conversations list"
+                  >
                     {conversations.map((c) => (
                       <ListItem
                         key={c.id}
@@ -484,6 +506,7 @@ const ChatPage: FC = () => {
                           size="small"
                           color={c.unreadCount > 0 ? 'primary' : 'default'}
                           sx={{ ml: 1 }}
+                          aria-label={`${c.unreadCount} unread messages from ${c.otherUser.name}`}
                         />
                       </ListItem>
                     ))}
@@ -538,6 +561,7 @@ const ChatPage: FC = () => {
           <IconButton
             size="small"
             onClick={() => setNewConversationOpen(false)}
+            aria-label="Close new conversation dialog"
           >
             <CloseIcon />
           </IconButton>
