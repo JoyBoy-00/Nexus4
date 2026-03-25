@@ -39,6 +39,10 @@ const MobileTopNavbar: FC = () => {
             <img
               src="/nexus.webp"
               alt="Nexus"
+              width="28"
+              height="28"
+              decoding="async"
+              fetchPriority="high"
               className="size-7 object-contain"
             />
           </div>
