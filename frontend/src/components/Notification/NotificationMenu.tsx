@@ -247,6 +247,9 @@ const NotificationMenu: FC<NotificationMenuProps> = ({
             borderRadius: 8,
           },
         }}
+        role="region"
+        aria-live="polite"
+        aria-label="Notifications list"
       >
         {loadingPreview ? (
           <Box display="flex" justifyContent="center" p={3}>

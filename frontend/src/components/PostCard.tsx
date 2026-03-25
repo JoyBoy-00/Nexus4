@@ -114,6 +114,7 @@ const PostCard: FC<PostCardProps> = ({ post, onLike, onComment }) => {
               <IconButton
                 onClick={(e) => setAnchorEl(e.currentTarget)}
                 size="small"
+                aria-label="Open post menu"
               >
                 <MoreVert />
               </IconButton>
@@ -147,6 +148,7 @@ const PostCard: FC<PostCardProps> = ({ post, onLike, onComment }) => {
               onClick={handleLike}
               color={isLiked ? 'primary' : 'default'}
               size="small"
+              aria-label={isLiked ? 'Unlike this post' : 'Like this post'}
             >
               {isLiked ? <ThumbUp /> : <ThumbUpOutlined />}
             </IconButton>
@@ -159,6 +161,7 @@ const PostCard: FC<PostCardProps> = ({ post, onLike, onComment }) => {
             <IconButton
               onClick={() => setShowComments(!showComments)}
               size="small"
+              aria-label={showComments ? 'Hide comments' : 'Show comments'}
             >
               <Comment />
             </IconButton>
@@ -167,7 +170,7 @@ const PostCard: FC<PostCardProps> = ({ post, onLike, onComment }) => {
             </Typography>
           </Box>
 
-          <IconButton size="small">
+          <IconButton size="small" aria-label="Share this post">
             <Share />
           </IconButton>
           <ReportButton type="POST" postId={post.id} />
