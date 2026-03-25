@@ -400,11 +400,25 @@ export const ProfileNameLink: FC<ProfileNameLinkProps> = ({
           anchorEl={anchorEl}
           placement="bottom-start"
           transition
-          disablePortal
           modifiers={[
             {
               name: 'offset',
               options: { offset: [0, 8] },
+            },
+            {
+              name: 'flip',
+              options: {
+                fallbackPlacements: ['top-start', 'top', 'bottom-end'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                boundary: 'viewport',
+                rootBoundary: 'viewport',
+                padding: 12,
+                altAxis: true,
+              },
             },
           ]}
           sx={(theme) => ({

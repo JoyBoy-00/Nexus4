@@ -108,7 +108,6 @@ export class ConnectionService {
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
             profile: {
               select: {
@@ -122,7 +121,6 @@ export class ConnectionService {
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
             profile: {
               select: {
@@ -166,7 +164,6 @@ export class ConnectionService {
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
             profile: {
               select: {
@@ -180,7 +177,6 @@ export class ConnectionService {
           select: {
             id: true,
             name: true,
-            email: true,
             role: true,
             profile: {
               select: {
@@ -221,7 +217,6 @@ export class ConnectionService {
             select: {
               id: true,
               name: true,
-              email: true,
               role: true,
               profile: {
                 select: {
@@ -235,7 +230,6 @@ export class ConnectionService {
             select: {
               id: true,
               name: true,
-              email: true,
               role: true,
               profile: {
                 select: {
@@ -408,7 +402,6 @@ export class ConnectionService {
             select: {
               id: true,
               name: true,
-              email: true,
               role: true,
               profile: {
                 select: {
@@ -429,7 +422,6 @@ export class ConnectionService {
             select: {
               id: true,
               name: true,
-              email: true,
               role: true,
               profile: {
                 select: {
@@ -510,7 +502,6 @@ export class ConnectionService {
             select: {
               id: true,
               name: true,
-              email: true,
               role: true,
               profile: {
                 select: {
@@ -582,7 +573,6 @@ export class ConnectionService {
             select: {
               id: true,
               name: true,
-              email: true,
               role: true,
               profile: {
                 select: {
@@ -922,7 +912,6 @@ export class ConnectionService {
       select: {
         id: true,
         name: true,
-        email: true,
         role: true,
         profile: {
           select: {
