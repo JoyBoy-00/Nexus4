@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 import ConnectionsHeader from '@/pages/Connections/components/ConnectionsHeader';
 import ConnectionsFilters from '@/pages/Connections/components/ConnectionsFilters';
 import ConnectionsTable from '@/pages/Connections/components/ConnectionsTable';
-import ProfilePreviewDialog from '@/pages/Connections/components/ProfilePreviewDialog';
 
 describe('Connections refactor smoke', () => {
   it('renders header component', () => {
@@ -68,25 +67,5 @@ describe('Connections refactor smoke', () => {
     );
 
     expect(screen.getByText('No connections yet')).toBeInTheDocument();
-  });
-
-  it('renders profile preview dialog', () => {
-    render(
-      <ProfilePreviewDialog
-        open={true}
-        userId="u1"
-        loading={false}
-        profile={{
-          name: 'Test User',
-          email: 'test@example.com',
-          role: 'STUDENT',
-        }}
-        onClose={vi.fn()}
-        onViewFullProfile={vi.fn()}
-        getRoleColor={() => 'primary'}
-      />
-    );
-
-    expect(screen.getByText('Test User')).toBeInTheDocument();
   });
 });

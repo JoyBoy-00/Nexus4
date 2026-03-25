@@ -55,7 +55,6 @@ export class ConnectionController {
         requester: {
           id: req.user.userId,
           name: req.user.name,
-          email: req.user.email,
         },
         recipientId: dto.recipientId,
         status: 'PENDING',
@@ -94,7 +93,6 @@ export class ConnectionController {
           recipient: {
             id: req.user.userId,
             name: req.user.name,
-            email: req.user.email,
           },
           requesterId: result.connection.requesterId,
           updatedAt: new Date().toISOString(),

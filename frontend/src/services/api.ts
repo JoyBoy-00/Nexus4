@@ -32,6 +32,14 @@ const api: AxiosInstance = axios.create({
 type MemoryCacheEntry = { data: unknown; ts: number; ttl: number };
 const memoryCache = new Map<string, MemoryCacheEntry>();
 
+const invalidateCacheByPrefix = (prefix: string) => {
+  for (const key of memoryCache.keys()) {
+    if (key.startsWith(prefix)) {
+      memoryCache.delete(key);
+    }
+  }
+};
+
 const getUserCacheKeyPart = () => {
   try {
     const userRaw = localStorage.getItem('user');
@@ -238,13 +246,27 @@ export const apiService = {
       );
     },
     send: (recipientId: string) =>
-      api.post('/connection/send', { recipientId }),
+      api.post('/connection/send', { recipientId }).then((response) => {
+        invalidateCacheByPrefix('connections:');
+        return response;
+      }),
     updateStatus: (connectionId: string, status: string) =>
-      api.patch('/connection/status', { connectionId, status }),
+      api
+        .patch('/connection/status', { connectionId, status })
+        .then((response) => {
+          invalidateCacheByPrefix('connections:');
+          return response;
+        }),
     cancel: (connectionId: string) =>
-      api.delete(`/connection/cancel/${connectionId}`),
+      api.delete(`/connection/cancel/${connectionId}`).then((response) => {
+        invalidateCacheByPrefix('connections:');
+        return response;
+      }),
     remove: (connectionId: string) =>
-      api.delete(`/connection/remove/${connectionId}`),
+      api.delete(`/connection/remove/${connectionId}`).then((response) => {
+        invalidateCacheByPrefix('connections:');
+        return response;
+      }),
     prefetch: (limit: number = 10) => {
       // Warm up common queries for instant navigation
       return Promise.allSettled([

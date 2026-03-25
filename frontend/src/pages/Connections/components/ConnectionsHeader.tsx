@@ -49,15 +49,6 @@ const ConnectionsHeader = ({
           Manage and grow your professional network
         </Typography>
       </Box>
-      <Button
-        variant="outlined"
-        startIcon={<RefreshIcon />}
-        onClick={onRefresh}
-        disabled={loading}
-        sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
-      >
-        Refresh
-      </Button>
 
       {stats && (
         <Stack
@@ -93,6 +84,15 @@ const ConnectionsHeader = ({
           />
         </Stack>
       )}
+      <Button
+        variant="outlined"
+        size="small"
+        onClick={onRefresh}
+        disabled={loading}
+        sx={{ minWidth: 'auto', p: 1 }}
+      >
+        <RefreshIcon />
+      </Button>
     </Paper>
   );
 };

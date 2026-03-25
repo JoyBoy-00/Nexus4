@@ -13,20 +13,21 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import { useNavigate } from 'react-router-dom';
 import useConnections from '../hooks/useConnections';
-import { apiService } from '../services/api';
 import { useNotification } from '@/contexts/NotificationContext';
 import ConnectionsTable from './Connections/components/ConnectionsTable';
-import ProfilePreviewDialog, {
-  type ProfilePreviewData,
-} from './Connections/components/ProfilePreviewDialog';
 import ConnectionsHeader from './Connections/components/ConnectionsHeader';
 import ConnectionsFilters from './Connections/components/ConnectionsFilters';
+import { buildProfilePath } from '@/utils/profileRoute';
 
 const Connections: FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const { showNotification } = useNotification();
   const [tabValue, setTabValue] = useState(0);
@@ -40,12 +41,6 @@ const Connections: FC = () => {
     message: string;
     onConfirm: () => void;
   }>({ open: false, title: '', message: '', onConfirm: () => {} });
-  const [profileModal, setProfileModal] = useState<{
-    open: boolean;
-    userId: string | null;
-    loading: boolean;
-    profile: ProfilePreviewData | null;
-  }>({ open: false, userId: null, loading: false, profile: null });
 
   const {
     connections,
@@ -287,29 +282,13 @@ const Connections: FC = () => {
     }
   };
 
-  const handleViewProfile = async (userId: string) => {
-    setProfileModal({ open: true, userId, loading: true, profile: null });
-    try {
-      const response = await apiService.profile.get(userId);
-      setProfileModal({
-        open: true,
-        userId,
-        loading: false,
-        profile: response.data as NonNullable<typeof profileModal.profile>,
-      });
-    } catch (err) {
-      console.error('Failed to load profile:', err);
-      setProfileModal({ open: true, userId, loading: false, profile: null });
-    }
-  };
-
-  const handleCloseProfileModal = () => {
-    setProfileModal({
-      open: false,
-      userId: null,
-      loading: false,
-      profile: null,
-    });
+  const handleViewProfile = (userId: string, userName?: string) => {
+    navigate(
+      buildProfilePath({
+        id: userId,
+        name: userName,
+      })
+    );
   };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -419,10 +398,34 @@ const Connections: FC = () => {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab label={`Connections (${connections.length})`} />
-          <Tab label={`Pending Received (${pendingReceived.length})`} />
-          <Tab label={`Pending Sent (${pendingSent.length})`} />
-          <Tab label={`Suggestions (${suggestions.length})`} />
+          <Tab
+            label={
+              isMobile
+                ? `All (${connections.length})`
+                : `Connections (${connections.length})`
+            }
+          />
+          <Tab
+            label={
+              isMobile
+                ? `Incoming (${pendingReceived.length})`
+                : `Pending Received (${pendingReceived.length})`
+            }
+          />
+          <Tab
+            label={
+              isMobile
+                ? `Sent (${pendingSent.length})`
+                : `Pending Sent (${pendingSent.length})`
+            }
+          />
+          <Tab
+            label={
+              isMobile
+                ? `Suggestions (${suggestions.length})`
+                : `Suggestions (${suggestions.length})`
+            }
+          />
         </Tabs>
       </Paper>
 
@@ -477,19 +480,6 @@ const Connections: FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <ProfilePreviewDialog
-        open={profileModal.open}
-        userId={profileModal.userId}
-        loading={profileModal.loading}
-        profile={profileModal.profile}
-        onClose={handleCloseProfileModal}
-        onViewFullProfile={(userId) => {
-          navigate(`/profile/${userId}`);
-          handleCloseProfileModal();
-        }}
-        getRoleColor={getRoleColor}
-      />
     </Box>
   );
 };

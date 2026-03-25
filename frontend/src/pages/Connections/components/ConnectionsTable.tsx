@@ -1,10 +1,9 @@
+import type { ChangeEvent, ReactNode } from 'react';
 import {
-  Avatar,
   Box,
   Button,
   Chip,
   IconButton,
-  Link,
   Paper,
   Table,
   TableBody,
@@ -15,6 +14,8 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Check as CheckIcon,
@@ -29,6 +30,7 @@ import type {
   ConnectionSuggestion,
 } from '@/types/connections';
 import ConnectionsEmptyState from './ConnectionsEmptyState';
+import { ProfileNameLink } from '@/utils/ProfileNameLink';
 
 export type ConnectionsRow = Connection | PendingRequest | ConnectionSuggestion;
 
@@ -41,7 +43,7 @@ interface ConnectionsTableProps {
   loading: boolean;
   getTableHeaders: () => string[];
   getRoleColor: (role: string) => 'primary' | 'secondary' | 'error' | 'default';
-  onViewProfile: (userId: string) => void;
+  onViewProfile: (userId: string, userName?: string) => void;
   onSendMessage: (userId: string) => void;
   onRemoveConnection: (connectionId: string) => void;
   onAcceptRequest: (requestId: string) => void;
@@ -49,7 +51,7 @@ interface ConnectionsTableProps {
   onCancelRequest: (requestId: string) => void;
   onConnect: (userId: string) => void;
   onChangePage: (_event: unknown, newPage: number) => void;
-  onChangeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onChangeRowsPerPage: (event: ChangeEvent<HTMLInputElement>) => void;
 }
 
 const ConnectionsTable = ({
@@ -71,14 +73,89 @@ const ConnectionsTable = ({
   onChangePage,
   onChangeRowsPerPage,
 }: ConnectionsTableProps) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const renderUserCell = (
+    user?: {
+      id?: string;
+      name?: string;
+      profile?: { avatarUrl?: string };
+    },
+    meta?: ReactNode
+  ) => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <ProfileNameLink
+          user={{
+            id: user?.id,
+            name: user?.name,
+            profile: { avatarUrl: user?.profile?.avatarUrl },
+          }}
+          showAvatar
+          showRoleBadge={false}
+          showYouBadge={false}
+          variant="subtitle2"
+        />
+      </Box>
+      {isMobile ? meta : null}
+    </Box>
+  );
+
+  const getConnectionDate = (connection: Connection) => {
+    const connectedAt =
+      'connectedAt' in connection
+        ? (connection as Connection & { connectedAt?: string }).connectedAt
+        : undefined;
+
+    return connectedAt || connection.createdAt
+      ? new Date(connectedAt || connection.createdAt).toLocaleDateString()
+      : 'N/A';
+  };
+
+  const getRequestedDate = (request: PendingRequest) => {
+    const requestedAt =
+      'requestedAt' in request
+        ? (request as PendingRequest & { requestedAt?: string }).requestedAt
+        : undefined;
+
+    return requestedAt || request.createdAt
+      ? new Date(requestedAt || request.createdAt).toLocaleDateString()
+      : 'N/A';
+  };
+
+  const getSentDate = (request: PendingRequest) => {
+    const sentAt =
+      'sentAt' in request
+        ? (request as PendingRequest & { sentAt?: string }).sentAt
+        : undefined;
+
+    return sentAt || request.createdAt
+      ? new Date(sentAt || request.createdAt).toLocaleDateString()
+      : 'N/A';
+  };
+
   return (
     <Paper>
       <TableContainer sx={{ overflowX: 'auto' }}>
         <Table>
           <TableHead>
             <TableRow>
-              {getTableHeaders().map((header) => (
-                <TableCell key={header} sx={{ fontWeight: 600 }}>
+              {getTableHeaders().map((header, index) => (
+                <TableCell
+                  key={header}
+                  sx={{
+                    fontWeight: 600,
+                    display:
+                      isMobile &&
+                      ((tabValue === 0 && [1, 2, 3].includes(index)) ||
+                        (tabValue === 1 && [1, 2].includes(index)) ||
+                        (tabValue === 2 && [1, 2, 3].includes(index)) ||
+                        (tabValue === 3 && [1, 2].includes(index)))
+                        ? 'none'
+                        : 'table-cell',
+                  }}
+                >
                   {header}
                 </TableCell>
               ))}
@@ -94,55 +171,54 @@ const ConnectionsTable = ({
               paginatedData.map((item: ConnectionsRow) => {
                 if (tabValue === 0) {
                   const connection = item as Connection;
+
                   return (
                     <TableRow key={connection.id} hover>
                       <TableCell>
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
-                        >
-                          <Avatar
-                            sx={{ bgcolor: 'primary.main', cursor: 'pointer' }}
-                            onClick={() =>
-                              connection.user?.id &&
-                              onViewProfile(connection.user.id)
-                            }
+                        {renderUserCell(
+                          connection.user,
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              gap: 0.75,
+                              flexWrap: 'wrap',
+                            }}
                           >
-                            {connection.user?.name?.charAt(0) || '?'}
-                          </Avatar>
-                          <Box>
-                            <Link
-                              component="button"
-                              variant="subtitle2"
-                              sx={{
-                                fontWeight: 600,
-                                textDecoration: 'none',
-                                cursor: 'pointer',
-                              }}
-                              onClick={() =>
-                                connection.user?.id &&
-                                onViewProfile(connection.user.id)
+                            <Chip
+                              label={connection.user?.role || 'Unknown'}
+                              color={getRoleColor(connection.user?.role || '')}
+                              size="small"
+                            />
+                            <Chip
+                              label={connection.status}
+                              color={
+                                connection.status === 'ACCEPTED'
+                                  ? 'success'
+                                  : 'default'
                               }
-                            >
-                              {connection.user?.name || 'Unknown User'}
-                            </Link>
+                              size="small"
+                            />
                             <Typography
                               variant="caption"
                               color="text.secondary"
-                              display="block"
                             >
-                              {connection.user?.email || 'No email'}
+                              Connected: {getConnectionDate(connection)}
                             </Typography>
                           </Box>
-                        </Box>
+                        )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                      >
                         <Chip
                           label={connection.user?.role || 'Unknown'}
                           color={getRoleColor(connection.user?.role || '')}
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                      >
                         <Chip
                           label={connection.status}
                           color={
@@ -153,35 +229,33 @@ const ConnectionsTable = ({
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                      >
                         <Typography variant="body2" color="text.secondary">
-                          {('connectedAt' in connection
-                            ? (
-                                connection as Connection & {
-                                  connectedAt?: string;
-                                }
-                              ).connectedAt
-                            : null) || connection.createdAt
-                            ? new Date(
-                                ('connectedAt' in connection
-                                  ? (
-                                      connection as Connection & {
-                                        connectedAt?: string;
-                                      }
-                                    ).connectedAt
-                                  : null) || connection.createdAt
-                              ).toLocaleDateString()
-                            : 'N/A'}
+                          {getConnectionDate(connection)}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            gap: 1,
+                            justifyContent: {
+                              xs: 'flex-end',
+                              sm: 'flex-start',
+                            },
+                          }}
+                        >
                           <Tooltip title="View Profile">
                             <IconButton
                               size="small"
                               onClick={() =>
                                 connection.user?.id &&
-                                onViewProfile(connection.user.id)
+                                onViewProfile(
+                                  connection.user.id,
+                                  connection.user?.name
+                                )
                               }
                               sx={{ color: 'primary.main' }}
                             >
@@ -191,7 +265,11 @@ const ConnectionsTable = ({
                           <Tooltip title="Send Message">
                             <IconButton
                               size="small"
-                              onClick={() => onSendMessage(connection.user?.id)}
+                              onClick={() => {
+                                if (connection.user?.id) {
+                                  onSendMessage(connection.user.id);
+                                }
+                              }}
                               sx={{ color: 'primary.main' }}
                             >
                               <MessageIcon />
@@ -214,51 +292,40 @@ const ConnectionsTable = ({
 
                 if (tabValue === 1) {
                   const pendingRequest = item as PendingRequest;
+
                   return (
                     <TableRow key={pendingRequest.id} hover>
                       <TableCell>
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
-                        >
-                          <Avatar
+                        {renderUserCell(
+                          pendingRequest.requester,
+                          <Box
                             sx={{
-                              bgcolor: 'secondary.main',
-                              cursor: 'pointer',
+                              display: 'flex',
+                              gap: 0.75,
+                              flexWrap: 'wrap',
                             }}
-                            onClick={() =>
-                              pendingRequest.requester?.id &&
-                              onViewProfile(pendingRequest.requester.id)
-                            }
                           >
-                            {pendingRequest.requester?.name?.charAt(0) || '?'}
-                          </Avatar>
-                          <Box>
-                            <Link
-                              component="button"
-                              variant="subtitle2"
-                              sx={{
-                                fontWeight: 600,
-                                textDecoration: 'none',
-                                cursor: 'pointer',
-                              }}
-                              onClick={() =>
-                                pendingRequest.requester?.id &&
-                                onViewProfile(pendingRequest.requester.id)
+                            <Chip
+                              label={
+                                pendingRequest.requester?.role || 'Unknown'
                               }
-                            >
-                              {pendingRequest.requester?.name || 'Unknown User'}
-                            </Link>
+                              color={getRoleColor(
+                                pendingRequest.requester?.role || ''
+                              )}
+                              size="small"
+                            />
                             <Typography
                               variant="caption"
                               color="text.secondary"
-                              display="block"
                             >
-                              {pendingRequest.requester?.email || 'No email'}
+                              Requested: {getRequestedDate(pendingRequest)}
                             </Typography>
                           </Box>
-                        </Box>
+                        )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                      >
                         <Chip
                           label={pendingRequest.requester?.role || 'Unknown'}
                           color={getRoleColor(
@@ -267,29 +334,22 @@ const ConnectionsTable = ({
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                      >
                         <Typography variant="body2" color="text.secondary">
-                          {('requestedAt' in pendingRequest
-                            ? (
-                                pendingRequest as PendingRequest & {
-                                  requestedAt?: string;
-                                }
-                              ).requestedAt
-                            : null) || pendingRequest.createdAt
-                            ? new Date(
-                                ('requestedAt' in pendingRequest
-                                  ? (
-                                      pendingRequest as PendingRequest & {
-                                        requestedAt?: string;
-                                      }
-                                    ).requestedAt
-                                  : null) || pendingRequest.createdAt
-                              ).toLocaleDateString()
-                            : 'N/A'}
+                          {getRequestedDate(pendingRequest)}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            gap: 1,
+                            flexDirection: { xs: 'column', sm: 'row' },
+                            width: { xs: '100%', sm: 'auto' },
+                          }}
+                        >
                           <Button
                             size="small"
                             startIcon={<CheckIcon />}
@@ -297,7 +357,7 @@ const ConnectionsTable = ({
                             variant="contained"
                             color="success"
                             sx={{
-                              minWidth: 'auto',
+                              minWidth: { xs: '100%', sm: 'auto' },
                               minHeight: '32px',
                               display: 'flex',
                               alignItems: 'center',
@@ -313,7 +373,7 @@ const ConnectionsTable = ({
                             variant="outlined"
                             color="error"
                             sx={{
-                              minWidth: 'auto',
+                              minWidth: { xs: '100%', sm: 'auto' },
                               minHeight: '32px',
                               display: 'flex',
                               alignItems: 'center',
@@ -330,48 +390,43 @@ const ConnectionsTable = ({
 
                 if (tabValue === 2) {
                   const pendingSent = item as PendingRequest;
+
                   return (
                     <TableRow key={pendingSent.id} hover>
                       <TableCell>
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
-                        >
-                          <Avatar
-                            sx={{ bgcolor: 'info.main', cursor: 'pointer' }}
-                            onClick={() =>
-                              pendingSent.recipient?.id &&
-                              onViewProfile(pendingSent.recipient.id)
-                            }
+                        {renderUserCell(
+                          pendingSent.recipient,
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              gap: 0.75,
+                              flexWrap: 'wrap',
+                            }}
                           >
-                            {pendingSent.recipient?.name?.charAt(0) || '?'}
-                          </Avatar>
-                          <Box>
-                            <Link
-                              component="button"
-                              variant="subtitle2"
-                              sx={{
-                                fontWeight: 600,
-                                textDecoration: 'none',
-                                cursor: 'pointer',
-                              }}
-                              onClick={() =>
-                                pendingSent.recipient?.id &&
-                                onViewProfile(pendingSent.recipient.id)
-                              }
-                            >
-                              {pendingSent.recipient?.name || 'Unknown User'}
-                            </Link>
+                            <Chip
+                              label={pendingSent.recipient?.role || 'Unknown'}
+                              color={getRoleColor(
+                                pendingSent.recipient?.role || ''
+                              )}
+                              size="small"
+                            />
+                            <Chip
+                              label="Pending"
+                              color="warning"
+                              size="small"
+                            />
                             <Typography
                               variant="caption"
                               color="text.secondary"
-                              display="block"
                             >
-                              {pendingSent.recipient?.email || 'No email'}
+                              Sent: {getSentDate(pendingSent)}
                             </Typography>
                           </Box>
-                        </Box>
+                        )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                      >
                         <Chip
                           label={pendingSent.recipient?.role || 'Unknown'}
                           color={getRoleColor(
@@ -380,28 +435,16 @@ const ConnectionsTable = ({
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                      >
                         <Typography variant="body2" color="text.secondary">
-                          {('sentAt' in pendingSent
-                            ? (
-                                pendingSent as PendingRequest & {
-                                  sentAt?: string;
-                                }
-                              ).sentAt
-                            : null) || pendingSent.createdAt
-                            ? new Date(
-                                ('sentAt' in pendingSent
-                                  ? (
-                                      pendingSent as PendingRequest & {
-                                        sentAt?: string;
-                                      }
-                                    ).sentAt
-                                  : null) || pendingSent.createdAt
-                              ).toLocaleDateString()
-                            : 'N/A'}
+                          {getSentDate(pendingSent)}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                      >
                         <Chip label="Pending" color="warning" size="small" />
                       </TableCell>
                       <TableCell>
@@ -420,55 +463,38 @@ const ConnectionsTable = ({
                 }
 
                 const suggestion = item as ConnectionSuggestion;
+
                 return (
                   <TableRow key={suggestion.user.id} hover>
                     <TableCell>
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
-                      >
-                        <Avatar
-                          sx={{ bgcolor: 'success.main', cursor: 'pointer' }}
-                          onClick={() =>
-                            suggestion.user?.id &&
-                            onViewProfile(suggestion.user.id)
-                          }
+                      {renderUserCell(
+                        suggestion.user,
+                        <Box
+                          sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}
                         >
-                          {suggestion.user?.name?.charAt(0) || '?'}
-                        </Avatar>
-                        <Box>
-                          <Link
-                            component="button"
-                            variant="subtitle2"
-                            sx={{
-                              fontWeight: 600,
-                              textDecoration: 'none',
-                              cursor: 'pointer',
-                            }}
-                            onClick={() =>
-                              suggestion.user?.id &&
-                              onViewProfile(suggestion.user.id)
-                            }
-                          >
-                            {suggestion.user?.name || 'Unknown User'}
-                          </Link>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            display="block"
-                          >
-                            {suggestion.user?.email || 'No email'}
+                          <Chip
+                            label={suggestion.user?.role || 'Unknown'}
+                            color={getRoleColor(suggestion.user?.role || '')}
+                            size="small"
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            Score: {suggestion.matchScore}%
                           </Typography>
                         </Box>
-                      </Box>
+                      )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                    >
                       <Chip
                         label={suggestion.user?.role || 'Unknown'}
                         color={getRoleColor(suggestion.user?.role || '')}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                    >
                       <Box>
                         <Typography
                           variant="body2"
@@ -487,18 +513,6 @@ const ConnectionsTable = ({
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title="View Profile">
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              suggestion.user?.id &&
-                              onViewProfile(suggestion.user.id)
-                            }
-                            sx={{ color: 'primary.main' }}
-                          >
-                            <VisibilityIcon />
-                          </IconButton>
-                        </Tooltip>
                         <Button
                           size="small"
                           startIcon={<PersonAddIcon />}
@@ -508,6 +522,7 @@ const ConnectionsTable = ({
                           disabled={loading}
                           sx={{
                             minHeight: '32px',
+                            minWidth: { xs: '100%', sm: 'auto' },
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -532,6 +547,13 @@ const ConnectionsTable = ({
         page={page}
         onPageChange={onChangePage}
         onRowsPerPageChange={onChangeRowsPerPage}
+        sx={{
+          '& .MuiTablePagination-toolbar': {
+            flexWrap: 'wrap',
+            gap: { xs: 1, sm: 0 },
+            justifyContent: { xs: 'center', sm: 'space-between' },
+          },
+        }}
       />
     </Paper>
   );
