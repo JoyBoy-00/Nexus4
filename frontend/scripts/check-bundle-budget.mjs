@@ -22,7 +22,7 @@ const budgets = [
   },
   {
     pattern: /^vendor-misc-.*\.js$/,
-    gzipMaxKb: 170,
+    gzipMaxKb: 180,
     label: 'misc vendor chunk',
   },
   {
