@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Add, Refresh, RestartAlt } from '@mui/icons-material';
+import ExportButton from '@/components/Export/ExportButton';
 
 interface ReferralsToolbarProps {
   userRole?: string;
@@ -150,6 +151,14 @@ export const ReferralsToolbar = ({
             />
           </Stack>
         </Box>
+        <ExportButton
+          exportType="REFERRALS"
+          pageTitle="Referrals"
+          filters={{
+            status: filterStatus !== 'ALL' ? filterStatus : undefined,
+          }}
+          isCompact
+        />
         <Box>
           <Button
             variant="outlined"

@@ -1,3 +1,4 @@
+import ExportButton from '@/components/Export/ExportButton';
 import {
   Block as BlockIcon,
   People as PeopleIcon,
@@ -84,6 +85,11 @@ const ConnectionsHeader = ({
           />
         </Stack>
       )}
+      <ExportButton
+        exportType="CONNECTIONS"
+        pageTitle="Connections"
+        isCompact
+      />
       <Button
         variant="outlined"
         size="small"
