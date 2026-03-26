@@ -1,4 +1,9 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError, AxiosRequestConfig } from 'axios';
+import axios, {
+  AxiosInstance,
+  AxiosResponse,
+  AxiosError,
+  AxiosRequestConfig,
+} from 'axios';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 type RefreshAuthResponse = {
@@ -6,8 +11,36 @@ type RefreshAuthResponse = {
 };
 
 type RetryableRequest = AxiosRequestConfig & { _retry?: boolean };
+type UnauthorizedHandler = () => void;
 
 let apiAccessToken: string | null = null;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+type RefreshQueueItem = {
+  resolve: (token: string | null) => void;
+  reject: (error: unknown) => void;
+};
+
+const refreshQueue: RefreshQueueItem[] = [];
+
+const drainRefreshQueue = (error: unknown | null, token: string | null) => {
+  while (refreshQueue.length > 0) {
+    const queued = refreshQueue.shift();
+    if (!queued) continue;
+    if (error) {
+      queued.reject(error);
+      continue;
+    }
+    queued.resolve(token);
+  }
+};
+
+const enqueueForRefresh = () =>
+  new Promise<string | null>((resolve, reject) => {
+    refreshQueue.push({ resolve, reject });
+  });
 
 export const setApiAccessToken = (token: string | null) => {
   apiAccessToken = token;
@@ -15,6 +48,9 @@ export const setApiAccessToken = (token: string | null) => {
 
 export const getApiAccessToken = () => apiAccessToken;
 export const isAxiosError = axios.isAxiosError;
+export const setUnauthorizedHandler = (handler: UnauthorizedHandler | null) => {
+  unauthorizedHandler = handler;
+};
 
 // Create axios instance with default config
 const api: AxiosInstance = axios.create({
@@ -126,7 +162,20 @@ api.interceptors.response.use(
       const retryableRequest = originalRequest as RetryableRequest;
       if (originalRequest && !retryableRequest._retry) {
         retryableRequest._retry = true;
-        try {
+
+        if (isRefreshing) {
+          try {
+            const tokenFromQueue = await enqueueForRefresh();
+            if (tokenFromQueue) {
+              return api(originalRequest);
+            }
+          } catch (queuedError) {
+            return Promise.reject(queuedError);
+          }
+        }
+
+        isRefreshing = true;
+        refreshPromise = (async () => {
           const refreshResponse = await axios.post<RefreshAuthResponse>(
             '/auth/refresh',
             {},
@@ -139,21 +188,27 @@ api.interceptors.response.use(
             }
           );
 
-          if (refreshResponse.data?.accessToken) {
-            setApiAccessToken(refreshResponse.data.accessToken);
-          }
+          const nextToken = refreshResponse.data?.accessToken ?? null;
+          setApiAccessToken(nextToken);
+          return nextToken;
+        })();
 
+        try {
+          const refreshedToken = await refreshPromise;
+          drainRefreshQueue(null, refreshedToken);
           return api(originalRequest);
         } catch (refreshError) {
           console.error('[Auth] Refresh attempt failed', refreshError);
+          drainRefreshQueue(refreshError, null);
+        } finally {
+          isRefreshing = false;
+          refreshPromise = null;
         }
       }
 
       localStorage.removeItem('user');
       setApiAccessToken(null);
-      if (globalThis.location.pathname !== '/login') {
-        globalThis.location.href = '/login';
-      }
+      unauthorizedHandler?.();
     }
 
     return Promise.reject(error);

@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { SnackbarProvider } from 'notistack';
+import { HelmetProvider } from 'react-helmet-async';
 import Loader from '@/utils/loader';
 import {
   GlobalErrorFallback,
@@ -16,7 +17,9 @@ import { useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './route/ProtectedRoute';
 import AdminRoute from './route/AdminRoute';
 import { reportFrontendError } from '@/services/errorReportingService';
+import AuthSessionBridge from '@/components/Auth/AuthSessionBridge';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import PageMeta from '@/components/seo/PageMeta';
 import SkipLink from '@/components/a11y/SkipLink';
 import PageAnnouncer from '@/components/a11y/PageAnnouncer';
 import './App.css';
@@ -151,10 +154,267 @@ const reportBoundaryError =
 const handleGlobalBoundaryError = reportBoundaryError('global');
 const handleRouteBoundaryError = reportBoundaryError('route');
 
+type RouteMeta = {
+  title: string;
+  description: string;
+  type?: 'website' | 'article' | 'profile';
+  noindex?: boolean;
+  jsonLd?: Record<string, unknown>;
+};
+
+const toTitleCase = (text: string) =>
+  text
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+const resolveRouteMeta = (pathname: string): RouteMeta => {
+  const exactRouteMeta: Record<string, RouteMeta> = {
+    '/': {
+      title: 'Home',
+      description:
+        'Nexus connects students and alumni for mentorship, referrals, and career growth.',
+      type: 'website',
+    },
+    '/login': {
+      title: 'Login',
+      description: 'Sign in to your Nexus account.',
+      noindex: true,
+    },
+    '/register': {
+      title: 'Register',
+      description: 'Create your Nexus account and join the community.',
+      noindex: true,
+    },
+    '/registration-success': {
+      title: 'Registration Success',
+      description: 'Your Nexus registration has been submitted successfully.',
+      noindex: true,
+    },
+    '/dashboard': {
+      title: 'Dashboard',
+      description: 'Your personalized Nexus dashboard and activity overview.',
+      noindex: true,
+    },
+    '/connections': {
+      title: 'Connections',
+      description: 'Manage your Nexus network and connection requests.',
+      noindex: true,
+    },
+    '/messages': {
+      title: 'Messages',
+      description: 'Chat with your Nexus connections in real time.',
+      noindex: true,
+    },
+    '/profile': {
+      title: 'Profile',
+      description:
+        'Manage your Nexus profile, skills, and professional details.',
+      noindex: true,
+    },
+    '/referrals': {
+      title: 'Referrals',
+      description: 'Browse and manage referral opportunities on Nexus.',
+      noindex: true,
+    },
+    '/referral-analytics': {
+      title: 'Referral Analytics',
+      description: 'Track referral performance and outcomes on Nexus.',
+      noindex: true,
+    },
+    '/files': {
+      title: 'Files',
+      description: 'Manage your shared files securely on Nexus.',
+      noindex: true,
+    },
+    '/notifications': {
+      title: 'Notifications',
+      description: 'See your latest updates and alerts from Nexus.',
+      noindex: true,
+    },
+    '/notifications/unread': {
+      title: 'Unread Notifications',
+      description: 'Review unread Nexus notifications.',
+      noindex: true,
+    },
+    '/feed': {
+      title: 'Feed',
+      description:
+        'Stay updated with the latest posts from your Nexus network.',
+      noindex: true,
+    },
+    '/subcommunities': {
+      title: 'Subcommunities',
+      description: 'Discover niche communities and discussions on Nexus.',
+      noindex: true,
+    },
+    '/subcommunities/my': {
+      title: 'My Subcommunities',
+      description: 'View and manage your subcommunity memberships.',
+      noindex: true,
+    },
+    '/subcommunities/my/owned': {
+      title: 'Owned Subcommunities',
+      description: 'Manage subcommunities you own.',
+      noindex: true,
+    },
+    '/subcommunities/my/moderated': {
+      title: 'Moderated Subcommunities',
+      description: 'Manage subcommunities you moderate.',
+      noindex: true,
+    },
+    '/subcommunities/my/member': {
+      title: 'Member Subcommunities',
+      description: 'Browse subcommunities you have joined.',
+      noindex: true,
+    },
+    '/projects': {
+      title: 'Projects',
+      description: 'Discover student and alumni projects on Nexus.',
+    },
+    '/gamification': {
+      title: 'Gamification',
+      description: 'Track points, badges, and progress on Nexus.',
+      noindex: true,
+    },
+    '/startups': {
+      title: 'Startups',
+      description:
+        'Explore startup ideas and collaborations in the Nexus ecosystem.',
+      noindex: true,
+    },
+    '/search': {
+      title: 'Search',
+      description: 'Search across Nexus posts, people, and content.',
+      noindex: true,
+    },
+    '/events': {
+      title: 'Events',
+      description:
+        'Discover upcoming networking events and workshops on Nexus.',
+    },
+    '/news': {
+      title: 'News',
+      description:
+        'Explore the latest announcements and industry stories on Nexus.',
+      type: 'website',
+    },
+  };
+
+  if (exactRouteMeta[pathname]) {
+    return exactRouteMeta[pathname];
+  }
+
+  if (pathname === '/') {
+    return {
+      title: 'Home',
+      description:
+        'Nexus connects students and alumni for mentorship, referrals, and career growth.',
+      type: 'website',
+    };
+  }
+
+  if (pathname.startsWith('/profile/')) {
+    const slug = decodeURIComponent(pathname.split('/')[2] || '').trim();
+    const personName = slug ? toTitleCase(slug) : 'Nexus Member';
+    return {
+      title: `${personName} Profile`,
+      description: `View ${personName}'s professional profile on Nexus.`,
+      type: 'profile',
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'Person',
+        name: personName,
+      },
+    };
+  }
+
+  if (pathname.startsWith('/news/')) {
+    return {
+      title: 'News Article',
+      description: 'Read the latest Nexus news and updates.',
+      type: 'article',
+    };
+  }
+
+  if (pathname.startsWith('/projects/')) {
+    return {
+      title: 'Project Details',
+      description:
+        'Explore project details, collaborators, and updates on Nexus.',
+      type: 'article',
+    };
+  }
+
+  if (pathname.startsWith('/posts/')) {
+    return {
+      title: 'Post',
+      description: 'Read conversations and updates from the Nexus community.',
+      type: 'article',
+    };
+  }
+
+  if (pathname.startsWith('/events/')) {
+    return {
+      title: 'Event Details',
+      description: 'See full event details and participation info on Nexus.',
+      type: 'article',
+    };
+  }
+
+  if (pathname.startsWith('/users/') && pathname.endsWith('/posts')) {
+    return {
+      title: 'User Posts',
+      description: 'Browse posts from this Nexus member.',
+      noindex: true,
+    };
+  }
+
+  if (pathname.startsWith('/users/') && pathname.endsWith('/projects')) {
+    return {
+      title: 'User Projects',
+      description: 'Browse projects from this Nexus member.',
+      noindex: true,
+    };
+  }
+
+  if (pathname.startsWith('/subcommunities/')) {
+    return {
+      title: 'Subcommunity',
+      description:
+        'Explore this Nexus subcommunity and its latest discussions.',
+      noindex: true,
+    };
+  }
+
+  if (pathname.startsWith('/admin')) {
+    return {
+      title: 'Admin',
+      description: 'Nexus administration dashboard.',
+      noindex: true,
+    };
+  }
+
+  return {
+    title: 'Nexus',
+    description: 'Nexus platform for student and alumni networking.',
+    noindex: pathname !== '/',
+  };
+};
+
 // Layout content component that uses auth
 const LayoutContent: FC = () => {
   const { user } = useAuth();
   const { pathname } = useLocation();
+  const origin = window.location.origin;
+  const normalizedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+  const canonicalUrl = `${normalizedOrigin}${pathname}`;
+  const ogImage = `${normalizedOrigin}/nexus.webp`;
+  const routeMeta = resolveRouteMeta(pathname);
+  const resolvedJsonLd = routeMeta.jsonLd
+    ? { ...routeMeta.jsonLd, url: canonicalUrl }
+    : undefined;
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
 
@@ -178,6 +438,15 @@ const LayoutContent: FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen w-full">
+      <PageMeta
+        title={routeMeta.title}
+        description={routeMeta.description}
+        type={routeMeta.type}
+        noindex={routeMeta.noindex}
+        image={ogImage}
+        url={canonicalUrl}
+        jsonLd={resolvedJsonLd}
+      />
       <SkipLink />
       <PageAnnouncer />
       {!user && (
@@ -624,6 +893,7 @@ const Layout: FC = () => {
 
   return (
     <Router>
+      <AuthSessionBridge />
       {user ? (
         <Suspense fallback={null}>
           <SidebarProvider>
@@ -660,23 +930,25 @@ const AuthGate: FC<{ children: React.ReactNode }> = ({ children }) => {
 
 function App() {
   return (
-    <ErrorBoundary
-      FallbackComponent={GlobalErrorFallback}
-      onError={handleGlobalBoundaryError}
-    >
-      <ThemeProvider>
-        <SnackbarProvider
-          maxSnack={4}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <AuthProvider>
-            <AuthGate>
-              <Layout />
-            </AuthGate>
-          </AuthProvider>
-        </SnackbarProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <HelmetProvider>
+      <ErrorBoundary
+        FallbackComponent={GlobalErrorFallback}
+        onError={handleGlobalBoundaryError}
+      >
+        <ThemeProvider>
+          <SnackbarProvider
+            maxSnack={4}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          >
+            <AuthProvider>
+              <AuthGate>
+                <Layout />
+              </AuthGate>
+            </AuthProvider>
+          </SnackbarProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </HelmetProvider>
   );
 }
 
