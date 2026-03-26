@@ -15,52 +15,37 @@ interface CacheOptions {
 export class CacheEnhancedService implements OnModuleInit {
   private readonly logger = new Logger(CacheEnhancedService.name);
   private redis: Redis;
-  private readonly localCache: Map<string, { value: any; expires: number }> = new Map();
+  private localCache: Map<string, { value: any; expires: number }> = new Map();
   private readonly DEFAULT_TTL = 300; // 5 minutes
   private readonly LOCAL_CACHE_MAX_SIZE = 1000;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
     try {
       // Initialize Redis connection
-      const disableRedis = this.configService.get<string>('DISABLE_REDIS', 'false');
       const redisUrl = this.configService.get<string>('REDIS_URL');
-      
-      // Skip Redis entirely if disabled
-      if (disableRedis === 'true') {
-        this.logger.warn('⚠️ Redis disabled - using local cache only');
-        this.redis = this.createMockRedisClient();
-      } else if (redisUrl && redisUrl.trim() !== '') {
-        try {
-          this.redis = new Redis(redisUrl, {
-            maxRetriesPerRequest: null,
-            enableReadyCheck: false,
-            enableOfflineQueue: false,
-            lazyConnect: true, // Never auto-connect
-            retryStrategy: () => false, // Disable retries
-          } as any);
+      if (redisUrl) {
+        this.redis = new Redis(redisUrl, {
+          maxRetriesPerRequest: 3,
+          retryStrategy: (times) => {
+            const delay = Math.min(times * 50, 2000);
+            return delay;
+          },
+        });
 
-          // Don't attempt connection - just setup error handling
-          this.redis.on('error', (err: any) => {
-            this.logger.warn('Redis unavailable, falling back to mock client:', err.message);
-            this.redis = this.createMockRedisClient();
-          });
+        this.redis.on('error', (err) => {
+          this.logger.error('Redis connection error:', err);
+        });
 
-          this.redis.on('connect', () => {
-            this.logger.log('Redis connected successfully');
-          });
-        } catch (redisError) {
-          this.logger.error('Failed to initialize Redis, using mock client:', redisError);
-          this.redis = this.createMockRedisClient();
-        }
+        this.redis.on('connect', () => {
+          this.logger.log('Redis connected successfully');
+        });
       } else {
         this.logger.warn('Redis URL not configured, using local cache only');
-        this.redis = this.createMockRedisClient();
       }
     } catch (error) {
-      this.logger.error('Failed to initialize cache service:', error);
-      this.redis = this.createMockRedisClient();
+      this.logger.error('Failed to initialize Redis:', error);
     }
 
     // Start cache cleanup interval
@@ -145,52 +130,38 @@ export class CacheEnhancedService implements OnModuleInit {
    */
   async clear(prefix?: string): Promise<void> {
     if (prefix) {
-      await this.clearByPrefix(prefix);
-    } else {
-      await this.clearAll();
-    }
-  }
+      // Clear by prefix
+      const pattern = `${prefix}:*`;
 
-  /**
-   * Clear cache by prefix
-   */
-  private async clearByPrefix(prefix: string): Promise<void> {
-    const pattern = `${prefix}:*`;
-
-    // Clear local cache
-    for (const key of this.localCache.keys()) {
-      if (key.startsWith(prefix)) {
-        this.localCache.delete(key);
-      }
-    }
-
-    // Clear Redis
-    if (this.redis) {
-      try {
-        const keys = await this.redis.keys(pattern);
-        if (keys.length > 0) {
-          await this.redis.del(...keys);
+      // Clear local cache
+      for (const key of this.localCache.keys()) {
+        if (key.startsWith(prefix)) {
+          this.localCache.delete(key);
         }
-      } catch (error) {
-        this.logger.error(
-          `Failed to clear Redis by prefix: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
       }
-    }
-  }
 
-  /**
-   * Clear all cache
-   */
-  private async clearAll(): Promise<void> {
-    this.localCache.clear();
-    if (this.redis) {
-      try {
-        await this.redis.flushdb();
-      } catch (error) {
-        this.logger.error(
-          `Failed to clear Redis: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
+      // Clear Redis
+      if (this.redis) {
+        try {
+          const keys = await this.redis.keys(pattern);
+          if (keys.length > 0) {
+            await this.redis.del(...keys);
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to clear Redis by prefix: ${error.message}`,
+          );
+        }
+      }
+    } else {
+      // Clear all
+      this.localCache.clear();
+      if (this.redis) {
+        try {
+          await this.redis.flushdb();
+        } catch (error) {
+          this.logger.error(`Failed to clear Redis: ${error.message}`);
+        }
       }
     }
   }
@@ -228,7 +199,7 @@ export class CacheEnhancedService implements OnModuleInit {
   /**
    * Get from local cache
    */
-  private getFromLocalCache(key: string): unknown {
+  private getFromLocalCache(key: string): any | null {
     const entry = this.localCache.get(key);
     if (!entry) {
       return null;
@@ -288,21 +259,6 @@ export class CacheEnhancedService implements OnModuleInit {
     return {
       localCacheSize: this.localCache.size,
       redisConnected: this.redis?.status === 'ready',
-    };
-  }
-
-  /**
-   * Create a mock Redis client for development without actual Redis
-   */
-  private createMockRedisClient(): any {
-    return {
-      get: async () => null,
-      set: async () => 'OK',
-      del: async () => 0,
-      exists: async () => 0,
-      expire: async () => 0,
-      ttl: async () => -1,
-      on: () => {},
     };
   }
 }

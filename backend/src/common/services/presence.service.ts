@@ -77,7 +77,7 @@ export interface ActivityEvent {
 @Injectable()
 export class PresenceService {
   private readonly logger = new Logger(PresenceService.name);
-  private redis: any; // Allowing reassignment for mock client fallback
+  private redis: Redis;
 
   // Configuration
   private readonly IDLE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
@@ -97,66 +97,19 @@ export class PresenceService {
    * Initialize Redis connection
    */
   private initializeRedis(): void {
-    const disableRedis = this.configService.get('DISABLE_REDIS', 'false');
     const redisUrl = this.configService.get('REDIS_URL');
-    
-    // Skip Redis initialization if explicitly disabled
-    if (disableRedis === 'true') {
-      this.logger.warn('⚠️ Presence Service: Redis disabled - using mock client');
-      this.redis = this.createMockRedisClient();
-      return;
-    }
-    
-    // Skip Redis initialization if not configured
-    if (!redisUrl || redisUrl.trim() === '') {
-      this.logger.warn('⚠️ Presence Service: Redis not configured - using mock client');
-      this.redis = this.createMockRedisClient();
-      return;
-    }
-    
-    try {
-      this.redis = new Redis(redisUrl, {
-        maxRetriesPerRequest: null,
-        enableReadyCheck: false,
-        enableOfflineQueue: false,
-        lazyConnect: true, // Never auto-connect
-        retryStrategy: () => false, // Disable retries
-      } as any);
+    this.redis = new Redis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+    });
 
-      // Setup error handling
-      this.redis.on('error', (err: any) => {
-        this.logger.warn('🔇 Presence Service: Redis unavailable, using mock client:', err.message);
-        this.redis = this.createMockRedisClient();
-      });
+    this.redis.on('connect', () => {
+      this.logger.log('🔗 Presence Service: Redis connected');
+    });
 
-      this.redis.on('connect', () => {
-        this.logger.log('🔗 Presence Service: Redis connected');
-      });
-    } catch (error) {
-      this.logger.error('Failed to initialize Presence Redis:', error);
-      this.redis = this.createMockRedisClient();
-    }
-  }
-
-  /**
-   * Create a mock Redis client
-   */
-  private createMockRedisClient(): any {
-    return {
-      on: () => {},
-      get: () => Promise.resolve(null),
-      set: () => Promise.resolve('OK'),
-      del: () => Promise.resolve(1),
-      exists: () => Promise.resolve(0),
-      hset: () => Promise.resolve(1),
-      hget: () => Promise.resolve(null),
-      hgetall: () => Promise.resolve({}),
-      hdel: () => Promise.resolve(1),
-      expire: () => Promise.resolve(1),
-      ttl: () => Promise.resolve(-1),
-      keys: () => Promise.resolve([]),
-      setex: () => Promise.resolve('OK'),
-    };
+    this.redis.on('error', (err) => {
+      this.logger.error('❌ Presence Service: Redis error:', err);
+    });
   }
 
   /**
@@ -241,7 +194,7 @@ export class PresenceService {
 
       if (results) {
         results.forEach((result, index) => {
-          if (result?.[1]) {
+          if (result && result[1]) {
             try {
               const presence = JSON.parse(result[1] as string) as PresenceData;
               presenceMap.set(userIds[index], presence);

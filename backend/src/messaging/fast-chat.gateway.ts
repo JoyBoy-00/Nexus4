@@ -72,49 +72,20 @@ export class FastChatGateway
     private readonly prismaService: PrismaService,
   ) {
     // Initialize Redis connection
-    const disableRedis = this.configService.get('DISABLE_REDIS', 'false');
     const redisUrl = this.configService.get('REDIS_URL');
-    
-    // Skip Redis if explicitly disabled
-    if (disableRedis === 'true') {
-      this.logger.warn('⚠️ Redis disabled - FastChat will operate in single-server mode');
-      this.redis = this.createMockRedisClient();
-    } else if (redisUrl && redisUrl.trim() !== '') {
-      try {
-        this.redis = new Redis(redisUrl, {
-          maxRetriesPerRequest: null,
-          enableReadyCheck: false,
-          enableOfflineQueue: false,
-          lazyConnect: true, // Never auto-connect
-          retryStrategy: () => false, // Disable retries
-        } as any);
-
-        this.redis.on('error', (err: any) => {
-          this.logger.warn('Redis unavailable, using mock client:', err.message);
-          this.redis = this.createMockRedisClient();
-        });
-
-        this.redis.on('connect', () => {
-          this.logger.log('🔗 Connected to Redis');
-        });
-      } catch (error) {
-        this.logger.error('Failed to initialize Redis, using mock client:', error);
-        this.redis = this.createMockRedisClient();
-      }
+    if (redisUrl) {
+      this.redis = new Redis(redisUrl);
     } else {
-      this.logger.warn('⚠️ Redis not configured - FastChat will operate in single-server mode');
-      // Create a no-op mock client
-      this.redis = this.createMockRedisClient();
+      this.redis = new Redis(this.configService.get('REDIS_URL'));
     }
-  }
 
-  private createMockRedisClient(): any {
-    return {
-      publish: async () => 0,
-      subscribe: async () => {},
-      unsubscribe: async () => {},
-      on: () => {},
-    };
+    this.redis.on('connect', () => {
+      this.logger.log('🔗 Connected to Redis');
+    });
+
+    this.redis.on('error', (err) => {
+      this.logger.error('❌ Redis connection error:', err);
+    });
   }
 
   afterInit() {
@@ -274,27 +245,62 @@ export class FastChatGateway
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     try {
-      // Validate authentication and message data
-      const validationError = this.validateMessage(client, data);
-      if (validationError) {
-        return validationError;
+      if (!client.userId) {
+        this.logger.warn('❌ Unauthenticated user attempted to send message');
+        return { error: 'User not authenticated' };
       }
 
-      // Check rate limit
-      const rateLimitError = await this.performRateLimit(client.userId);
-      if (rateLimitError) {
-        return rateLimitError;
+      // Validate message data
+      if (!data.receiverId || !data.content) {
+        this.logger.warn(`❌ Invalid message data from user ${client.userId}`);
+        client.emit('MESSAGE_ERROR', {
+          error: 'Invalid message data',
+          timestamp: new Date().toISOString(),
+        });
+        return { error: 'Invalid message data' };
       }
 
-      // Check for duplicate messages
-      const messageId = `${client.userId}_${data.receiverId}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-      const duplicateError = await this.checkDuplicateMessage(messageId);
-      if (duplicateError) {
-        return duplicateError;
+      // Rate limiting using Redis
+      const rateLimitKey = `rate_limit:${client.userId}`;
+      const currentCount = await this.redis.incr(rateLimitKey);
+
+      if (currentCount === 1) {
+        // Set expiration for 1 minute
+        await this.redis.expire(rateLimitKey, 60);
       }
 
-      // Mark message as processed
-      await this.redis.setex(`message:${messageId}`, 3600, '1');
+      const maxMessagesPerMinute = this.configService.get(
+        'RATE_LIMIT_MESSAGES_PER_MINUTE',
+        100,
+      );
+      if (currentCount > maxMessagesPerMinute) {
+        this.logger.warn(
+          `🚫 Rate limit exceeded for user ${client.userId}: ${currentCount}/${maxMessagesPerMinute}`,
+        );
+        client.emit('RATE_LIMIT_EXCEEDED', {
+          error: 'Too many messages sent. Please slow down.',
+          retryAfter: 60,
+          timestamp: new Date().toISOString(),
+        });
+        return { error: 'Rate limit exceeded' };
+      }
+
+      // Generate unique message ID for deduplication
+      const messageId = `${client.userId}_${data.receiverId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Check if this message was already processed using Redis
+      const messageKey = `message:${messageId}`;
+      const exists = await this.redis.exists(messageKey);
+
+      if (exists) {
+        this.logger.log(
+          `⚠️ Duplicate message detected, ignoring: ${messageId}`,
+        );
+        return { error: 'Duplicate message', status: 'already_sent' };
+      }
+
+      // Mark message as processed in Redis (expires in 1 hour)
+      await this.redis.setex(messageKey, 3600, '1');
 
       this.logger.log('📨 Processing new message:', {
         messageId,
@@ -309,25 +315,74 @@ export class FastChatGateway
         data,
       );
 
+      // Add our generated ID to the message for frontend deduplication
       const messageWithId = {
         ...message,
         uniqueId: messageId,
       };
 
-      // Broadcast to recipient
+      // Broadcast to recipient ONLY (prevents duplicates)
       const recipientRoom = `user_${data.receiverId}`;
       this.server.to(recipientRoom).emit('NEW_MESSAGE', messageWithId);
 
-      // Send push notification if recipient is offline
+      // Check if recipient is online, if not send push notification
       const isRecipientOnline = await this.redis.sismember(
         'online_users',
         data.receiverId,
       );
+
       if (!isRecipientOnline) {
-        await this.sendOfflineNotification(client.userId, data.receiverId, data.content, message.id);
+        this.logger.log(
+          `📱 Recipient ${data.receiverId} is offline, sending push notification`,
+        );
+
+        // Get recipient's FCM device token
+        const recipient = await this.prismaService.user.findUnique({
+          where: { id: data.receiverId },
+          select: { fcmDeviceToken: true, name: true },
+        });
+
+        if (recipient?.fcmDeviceToken) {
+          try {
+            // Get sender's name
+            const sender = await this.prismaService.user.findUnique({
+              where: { id: client.userId },
+              select: { name: true },
+            });
+
+            await this.fcmService.sendMessageNotification(
+              recipient.fcmDeviceToken,
+              sender?.name || 'Someone',
+              data.content,
+              message.id,
+            );
+
+            this.logger.log(`✅ Push notification sent to ${data.receiverId}`);
+          } catch (fcmError) {
+            if (fcmError.message === 'INVALID_TOKEN') {
+              // Remove invalid device token
+              this.logger.warn(
+                `⚠️ Removing invalid FCM token for user ${data.receiverId}`,
+              );
+              await this.prismaService.user.update({
+                where: { id: data.receiverId },
+                data: { fcmDeviceToken: null },
+              });
+            } else {
+              this.logger.error(
+                '❌ Failed to send push notification:',
+                fcmError,
+              );
+            }
+          }
+        } else {
+          this.logger.log(
+            `ℹ️ No FCM token registered for user ${data.receiverId}`,
+          );
+        }
       }
 
-      // Send confirmation to sender
+      // Send confirmation to sender with message acknowledgment
       client.emit('MESSAGE_SENT', {
         messageId,
         dbMessageId: message.id,
@@ -335,7 +390,9 @@ export class FastChatGateway
         status: 'delivered',
       });
 
+      // Update last activity
       client.lastActivity = Date.now();
+
       this.logger.log(`✅ Message sent successfully: ${messageId}`);
 
       return {
@@ -347,137 +404,13 @@ export class FastChatGateway
     } catch (error) {
       this.logger.error(
         `❌ Error handling new message from user ${client.userId}:`,
-        error instanceof Error ? error.message : 'Unknown error',
+        error.message,
       );
       client.emit('MESSAGE_ERROR', {
         error: 'Failed to send message. Please try again.',
         timestamp: new Date().toISOString(),
       });
       return { error: 'Internal server error' };
-    }
-  }
-
-  /**
-   * Validate message and authentication
-   */
-  private validateMessage(client: AuthenticatedSocket, data: CreateMessageDto): any {
-    if (!client.userId) {
-      this.logger.warn('❌ Unauthenticated user attempted to send message');
-      return { error: 'User not authenticated' };
-    }
-
-    if (!data.receiverId || !data.content) {
-      this.logger.warn(`❌ Invalid message data from user ${client.userId}`);
-      client.emit('MESSAGE_ERROR', {
-        error: 'Invalid message data',
-        timestamp: new Date().toISOString(),
-      });
-      return { error: 'Invalid message data' };
-    }
-
-    return null;
-  }
-
-  /**
-   * Perform rate limiting check
-   */
-  private async performRateLimit(userId: string): Promise<any> {
-    const rateLimitKey = `rate_limit:${userId}`;
-    const currentCount = await this.redis.incr(rateLimitKey);
-
-    if (currentCount === 1) {
-      await this.redis.expire(rateLimitKey, 60);
-    }
-
-    const maxMessagesPerMinute = this.configService.get(
-      'RATE_LIMIT_MESSAGES_PER_MINUTE',
-      100,
-    );
-
-    if (currentCount > maxMessagesPerMinute) {
-      this.logger.warn(
-        `🚫 Rate limit exceeded for user ${userId}: ${currentCount}/${maxMessagesPerMinute}`,
-      );
-      return {
-        error: 'Rate limit exceeded',
-        retryAfter: 60,
-      };
-    }
-
-    return null;
-  }
-
-  /**
-   * Check for duplicate messages
-   */
-  private async checkDuplicateMessage(messageId: string): Promise<any> {
-    const messageKey = `message:${messageId}`;
-    const exists = await this.redis.exists(messageKey);
-
-    if (exists) {
-      this.logger.log(`⚠️ Duplicate message detected, ignoring: ${messageId}`);
-      return { error: 'Duplicate message', status: 'already_sent' };
-    }
-
-    return null;
-  }
-
-  /**
-   * Send offline notification to recipient
-   */
-  private async sendOfflineNotification(
-    senderUserId: string,
-    receiverUserId: string,
-    messageContent: string,
-    messageId: string,
-  ): Promise<void> {
-    void senderUserId;
-    void messageContent;
-    void messageId;
-
-    this.logger.log(
-      `📱 Recipient ${receiverUserId} is offline, sending push notification`,
-    );
-
-    const recipient = await this.prismaService.user.findUnique({
-      where: { id: receiverUserId },
-      select: { fcmDeviceToken: true, name: true },
-    });
-
-    if (!recipient?.fcmDeviceToken) {
-      this.logger.log(`ℹ️ No FCM token registered for user ${receiverUserId}`);
-      return;
-    }
-
-    try {
-      const sender = await this.prismaService.user.findUnique({
-        where: { id: senderUserId },
-        select: { name: true },
-      });
-
-      await this.fcmService.sendMessageNotification(
-        recipient.fcmDeviceToken,
-        sender?.name || 'Someone',
-        messageContent,
-        messageId,
-      );
-
-      this.logger.log(`✅ Push notification sent to ${receiverUserId}`);
-    } catch (fcmError) {
-      if ((fcmError as Error).message === 'INVALID_TOKEN') {
-        this.logger.warn(
-          `⚠️ Removing invalid FCM token for user ${receiverUserId}`,
-        );
-        await this.prismaService.user.update({
-          where: { id: receiverUserId },
-          data: { fcmDeviceToken: null },
-        });
-      } else {
-        this.logger.error(
-          '❌ Failed to send push notification:',
-          fcmError instanceof Error ? fcmError.message : 'Unknown error',
-        );
-      }
     }
   }
 
@@ -503,10 +436,7 @@ export class FastChatGateway
       if (!this.typingUsers.has(receiverId)) {
         this.typingUsers.set(receiverId, new Set());
       }
-      const typingSet = this.typingUsers.get(receiverId);
-      if (typingSet) {
-        typingSet.add(client.userId);
-      }
+      this.typingUsers.get(receiverId)!.add(client.userId);
 
       // Broadcast typing indicator to recipient
       this.server.to(`user_${receiverId}`).emit('USER_TYPING', {
