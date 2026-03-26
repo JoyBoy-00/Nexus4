@@ -136,13 +136,19 @@ const ExportButton: FC<ExportButtonProps> = ({
         setExporting(false);
         showNotification?.('Export completed! Ready to download.', 'success');
         // Auto-download after 1s
-        downloadTimeoutRef.current = setTimeout(() => handleDownload(jobId), 1000);
+        downloadTimeoutRef.current = setTimeout(
+          () => handleDownload(jobId),
+          1000
+        );
       } else if (status.status === 'FAILED') {
         setExporting(false);
         showNotification?.(`Export failed: ${status.error}`, 'error');
       } else {
         // Continue polling
-        pollingTimeoutRef.current = setTimeout(() => pollExportStatus(jobId, attempts + 1), 1000);
+        pollingTimeoutRef.current = setTimeout(
+          () => pollExportStatus(jobId, attempts + 1),
+          1000
+        );
       }
     } catch (_error) {
       console.error('Failed to check export status:', _error);
@@ -320,7 +326,11 @@ const ExportButton: FC<ExportButtonProps> = ({
                 <InputLabel>Export Format</InputLabel>
                 <Select
                   value={format}
-                  onChange={(e) => setFormat(e.target.value as 'CSV' | 'PDF' | 'EXCEL' | 'JSON')}
+                  onChange={(e) =>
+                    setFormat(
+                      e.target.value as 'CSV' | 'PDF' | 'EXCEL' | 'JSON'
+                    )
+                  }
                   label="Export Format"
                 >
                   {formatOptions.map((option) => (
