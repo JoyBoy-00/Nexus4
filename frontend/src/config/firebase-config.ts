@@ -3,7 +3,8 @@ import {
   getMessaging,
   getToken,
   onMessage,
-  Messaging,
+  type MessagePayload,
+  type Messaging,
 } from 'firebase/messaging';
 
 /**
@@ -191,7 +192,7 @@ export const onForegroundMessage = (
     return () => {};
   }
 
-  const unsubscribe = onMessage(messaging, (payload) => {
+  const unsubscribe = onMessage(messaging, (payload: MessagePayload) => {
     console.log('📨 Foreground message received:', payload);
 
     const title = payload.notification?.title || 'New Message';
