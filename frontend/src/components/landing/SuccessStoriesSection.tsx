@@ -137,6 +137,7 @@ const StoriesCarousel = () => {
                   src={story.image}
                   alt={story.name}
                   loading="lazy"
+                  decoding="async"
                   className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl object-cover"
                 />
                 <div

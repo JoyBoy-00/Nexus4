@@ -95,33 +95,24 @@ async function bootstrap() {
   );
 
   // ============================================
-  // WEBSOCKET: Redis Adapter for Horizontal Scalability (Optional)
+  // WEBSOCKET: Redis Adapter for Horizontal Scalability
   // ============================================
-  const disableRedis = process.env.DISABLE_REDIS === 'true';
-  
-  if (!disableRedis) {
-    const redisIoAdapter = new RedisIoAdapter(app);
-    // Connect to Redis for Socket.IO adapter but don't block application startup.
-    // If Redis is slow or unavailable, connecting can hang; run connect in background.
-    redisIoAdapter.connectToRedis().catch((err) => {
-      const fallbackLogger = new WinstonLoggerService();
-      fallbackLogger.error(
-        'Redis adapter background connection failed',
-        err?.stack || String(err),
-        'Bootstrap',
-      );
-    });
-    app.useWebSocketAdapter(redisIoAdapter);
-    loggerService.log(
-      '✅ WebSocket adapter configured with Redis (multi-server support)',
+  const redisIoAdapter = new RedisIoAdapter(app);
+  // Connect to Redis for Socket.IO adapter but don't block application startup.
+  // If Redis is slow or unavailable, connecting can hang; run connect in background.
+  redisIoAdapter.connectToRedis().catch((err) => {
+    const fallbackLogger = new WinstonLoggerService();
+    fallbackLogger.error(
+      'Redis adapter background connection failed',
+      err?.stack || String(err),
       'Bootstrap',
     );
-  } else {
-    loggerService.log(
-      '⚠️  Redis disabled - using default in-memory WebSocket adapter (single-server only)',
-      'Bootstrap',
-    );
-  }
+  });
+  app.useWebSocketAdapter(redisIoAdapter);
+  loggerService.log(
+    '✅ WebSocket adapter configured with Redis (multi-server support)',
+    'Bootstrap',
+  );
 
   // ============================================
   // VALIDATION: Global Validation Pipe with Auto-Transformation

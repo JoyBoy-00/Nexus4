@@ -38,7 +38,7 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
     (_event: React.ChangeEvent<unknown>, page: number) => {
       onPageChange(page);
     },
-    [onPageChange],
+    [onPageChange]
   );
 
   if (isLoading) {
@@ -52,7 +52,8 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
   // Prepare chart data
   const chartData = data.items.map((post, idx) => ({
     id: post.id,
-    title: post.subject.substring(0, 30) + (post.subject.length > 30 ? '...' : ''),
+    title:
+      post.subject.substring(0, 30) + (post.subject.length > 30 ? '...' : ''),
     performance: post.performanceScore,
     votes: post.votes,
     comments: post.comments,
@@ -69,7 +70,7 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
 
   const totalPerformance = data.items.reduce(
     (sum, post) => sum + post.performanceScore,
-    0,
+    0
   );
   const avgPerformance =
     data.items.length > 0 ? totalPerformance / data.items.length : 0;
@@ -79,9 +80,7 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
     <Paper sx={{ p: 3, mb: 3 }}>
       <Stack spacing={2}>
         {/* Header */}
-        <Typography variant="h6">
-          Content Performance - Top Posts
-        </Typography>
+        <Typography variant="h6">Content Performance - Top Posts</Typography>
 
         {/* Stats */}
         <Box sx={{ display: 'flex', gap: 3 }}>
@@ -107,7 +106,9 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {data.items.length > 0
-                ? Math.max(...data.items.map((p) => p.performanceScore)).toFixed(1)
+                ? Math.max(
+                    ...data.items.map((p) => p.performanceScore)
+                  ).toFixed(1)
                 : 0}
             </Typography>
           </Box>
@@ -115,7 +116,11 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
 
         {/* Chart */}
         {data.items.length > 0 ? (
-          <Box sx={{ width: '100%', height: 400 }} role="img" aria-label={chartSummary}>
+          <Box
+            sx={{ width: '100%', height: 400 }}
+            role="img"
+            aria-label={chartSummary}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 layout="vertical"
@@ -151,7 +156,11 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
                     <Cell
                       key={`cell-${entry.id}`}
                       fill={getBarColor(entry.performance)}
-                      opacity={hoveredIndex === null || hoveredIndex === index ? 1 : 0.4}
+                      opacity={
+                        hoveredIndex === null || hoveredIndex === index
+                          ? 1
+                          : 0.4
+                      }
                     />
                   ))}
                 </Bar>
@@ -159,7 +168,10 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
             </ResponsiveContainer>
           </Box>
         ) : (
-          <Typography variant="body2" sx={{ color: 'text.secondary', py: 3, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{ color: 'text.secondary', py: 3, textAlign: 'center' }}
+          >
             No posts yet
           </Typography>
         )}
@@ -181,7 +193,9 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
                     px: 1,
                     borderRadius: 1,
                     backgroundColor:
-                      hoveredIndex === idx ? 'rgba(0, 0, 0, 0.02)' : 'transparent',
+                      hoveredIndex === idx
+                        ? 'rgba(0, 0, 0, 0.02)'
+                        : 'transparent',
                     transition: 'all 0.2s ease',
                     '&:hover': {
                       backgroundColor: 'rgba(0, 0, 0, 0.04)',
@@ -252,7 +266,9 @@ const ContentPerformanceChart: React.FC<ContentPerformanceChartProps> = ({
               onChange={handlePageChange}
               color="primary"
               aria-label="Content performance page navigation"
-              sx={{ '& .MuiPaginationItem-root': { minWidth: 44, minHeight: 44 } }}
+              sx={{
+                '& .MuiPaginationItem-root': { minWidth: 44, minHeight: 44 },
+              }}
             />
           </Box>
         )}

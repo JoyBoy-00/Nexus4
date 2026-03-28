@@ -209,3 +209,156 @@ Combined approach with highest ROI:
 - **Total potential**: 376.69 KB → ~320 KB (15% additional reduction, cumulative 25-28%)
 - **Path to 30%**: Requires full Phase 3 (MUI + misc) + minor Phase 4 verification
 - **Timeline**: Phase 3 can follow same approach as Phase 1-2 (modular extraction, gradual testing)
+
+## Frontend Refactor Optimization Techniques (March 2026)
+
+### Completed
+
+- WebSocket consolidation
+  - Kept `src/services/websocket.improved.ts` as the active implementation.
+  - Removed unused `src/services/websocket.ts` and `src/services/websocket.production.ts`.
+
+- Connections modular refactor
+  - Extracted reusable pieces from `src/pages/Connections.tsx` into:
+    - `src/pages/Connections/components/ConnectionsHeader.tsx`
+    - `src/pages/Connections/components/ConnectionsFilters.tsx`
+    - `src/pages/Connections/components/ConnectionsTable.tsx`
+    - `src/pages/Connections/components/ConnectionsEmptyState.tsx`
+    - `src/pages/Connections/components/ProfilePreviewDialog.tsx`
+  - Removed post-refactor unused imports to keep build clean.
+
+- Refactor safety net
+  - Added smoke tests and validated passing for the extracted Connections components.
+
+### In Progress
+
+- Showcase context decomposition
+  - Added extracted hooks in `src/contexts/hooks/`:
+    - `useShowcaseLoadingState.ts`
+    - `useShowcaseCache.ts`
+    - `useShowcaseTypes.ts`
+    - `useShowcaseCollaboration.ts`
+    - `useShowcaseEngagement.ts`
+  - Added smoke tests for new hooks:
+    - `__tests__/unit/contexts/showcase/ShowcaseHooks.smoke.test.tsx`
+
+### Technique Notes
+
+- Optimization method: large-file decomposition + concern isolation.
+- Primary gains: lower cognitive load, safer incremental refactors, and faster regression validation via smoke tests.
+- Current next action: compose extracted hooks inside `ShowcaseContext.tsx` while preserving external context API.
+
+
+### Update (March 2026 - Showcase Wiring Delta)
+
+- `ShowcaseContext.tsx` now composes extracted hooks for:
+  - loading/error state (`useShowcaseLoadingState`)
+  - project type loading (`useShowcaseTypes`)
+  - collaboration flow (`useShowcaseCollaboration`)
+- Removed duplicate in-file collaboration callbacks after hook composition.
+- Optimization impact: reduced provider responsibility and improved separation of concerns without changing context API surface.
+
+
+### Update (March 2026 - Showcase Cache Wiring Delta)
+
+- `ShowcaseContext.tsx` now consumes `useShowcaseCache` for:
+  - `projectsCache`
+  - `getCachedProject` / `setCachedProject`
+  - `getCachedComments` / `setCachedComments`
+  - `normalizeFilterForCompare`
+  - `cacheInfo`
+- Replaced remaining direct cache mutation blocks with hook-based invalidation.
+- Preserved existing external behavior for `clearProjectsCache` via provider wrapper logic.
+
+
+### Update (March 2026 - Showcase Engagement Wiring Delta)
+
+- `ShowcaseContext.tsx` now composes `useShowcaseEngagement` for:
+  - `comments`
+  - `updates`
+  - `seekingOptions`
+  - `createComment` / `getComments`
+  - `createProjectUpdate` / `getProjectUpdates`
+  - `getSeekingOptions`
+- Removed duplicate in-provider engagement callback implementations.
+- Optimization impact: further reduction of monolithic context logic and clearer side-effect ownership.
+
+
+### Update (March 2026 - Showcase Team Members Wiring Delta)
+
+- `ShowcaseContext.tsx` now composes `useShowcaseTeamMembers` for:
+  - `teamMembers`
+  - `createProjectTeamMember`
+  - `getProjectTeamMembers`
+  - `removeProjectTeamMember`
+- Removed duplicate in-provider team member callback block.
+- Optimization impact: reduced provider branching and isolated team-member side effects.
+
+
+### Update (March 2026 - Showcase Reactions Wiring Delta)
+
+- `ShowcaseContext.tsx` now composes `useShowcaseProjectReactions` for:
+  - `supportProject`
+  - `unsupportProject`
+  - `followProject`
+  - `unfollowProject`
+- Removed duplicate in-provider reaction callback implementations.
+- Optimization impact: isolated reaction-side effects and reduced provider complexity.
+
+
+### Update (March 2026 - Showcase Project Core Wiring Delta)
+
+- Added `useShowcaseProjectCore` and moved the largest provider concern into it:
+  - project state slices (`projectCounts`, `allProjects`, `projectsByUserId`, `myProjects`, `supportedProjects`, `followedProjects`, `projectById`)
+  - core project actions (`create/update/delete`, list fetching, detail fetching, sharing lookup)
+- `ShowcaseContext.tsx` now composes this core hook alongside loading/cache/collaboration/engagement/team/reactions hooks.
+- Measured result: `ShowcaseContext.tsx` reduced to ~543 lines from previous monolithic size.
+
+
+### Update (March 2026 - SubCommunity Membership + MyCommunities Wiring Delta)
+
+- Started decomposition of `SubCommunityContext.tsx` by extracting two provider concern blocks into hooks:
+  - `useSubCommunityMembership.ts` for member/join-request/creation-request mutations and local state.
+  - `useSubCommunityMyCommunities.ts` for grouped owned/moderated/member loading flow.
+- `SubCommunityContext.tsx` now composes these hooks and keeps provider as orchestrator.
+- Measured result: `SubCommunityContext.tsx` reduced from 1434 lines to 1112 lines in this pass.
+
+
+### Update (March 2026 - SubCommunity Type Listing Wiring Delta)
+
+- Extracted type/filter/cache/pagination orchestration into `useSubCommunityTypeListing.ts`.
+- Provider now composes listing flows (`ensureAllSubCommunities`, `ensureTypes`, `getSubCommunityByType`, paging helpers, filter state, and scheduler) via hook composition.
+- Measured result: `SubCommunityContext.tsx` reduced further from 1112 lines to 613 lines.
+
+
+### Update (March 2026 - SubCommunityFeedPage Component Extraction Pass 1)
+
+- Extracted posts rendering block into `SubCommunityPostsList.tsx`.
+- Extracted members rendering block into `SubCommunityMembersList.tsx`.
+- `SubCommunityFeedPage.tsx` now composes extracted tab list components while preserving route/page behavior.
+- Measured result: `SubCommunityFeedPage.tsx` reduced from 1492 lines to 1103 lines in this pass.
+
+
+### Update (March 2026 - SubCommunityFeedPage Component Extraction Pass 2)
+
+- Extracted community header/banner/actions region into `SubCommunityHeaderSection.tsx`.
+- Extracted About tab content into `SubCommunityAboutCard.tsx`.
+- `SubCommunityFeedPage.tsx` now primarily coordinates data/actions and composes focused UI components.
+- Measured result: `SubCommunityFeedPage.tsx` reduced from 1103 lines to 808 lines in this pass.
+
+
+### Update (March 2026 - ProjectDetailsCard Component Extraction Pass 1)
+
+- Extracted primary overview grid into `ProjectOverviewSection.tsx` (image/header/owner/metrics/actions/seeking banner).
+- Extracted footer action bar into `ProjectDetailFooterActions.tsx`.
+- `ProjectDetailsCard.tsx` now focuses on state/effects/tab orchestration and composes extracted view sections.
+- Measured result: `ProjectDetailsCard.tsx` reduced from 1504 lines to 1089 lines in this pass.
+
+
+### Update (March 2026 - Referrals Component Extraction Pass 1)
+
+- Extracted top analytics/header/filter/actions region into `ReferralsToolbar.tsx`.
+- Extracted referral grid card item into `ReferralCard.tsx`.
+- Extracted "My Applications" section into `MyApplicationsSection.tsx`.
+- Measured result: `Referrals.tsx` reduced from 1580 lines to 1055 lines in this pass.
+

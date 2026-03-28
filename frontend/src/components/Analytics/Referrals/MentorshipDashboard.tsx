@@ -23,10 +23,13 @@ interface MentorshipDashboardProps {
   impact: MentorshipImpactResponse;
 }
 
-const MentorshipDashboard: FC<MentorshipDashboardProps> = ({ summary, impact }) => {
+const MentorshipDashboard: FC<MentorshipDashboardProps> = ({
+  summary,
+  impact,
+}) => {
   const hoursProgress = useMemo(
     () => Math.min(100, (summary.summary.mentorshipHoursLogged / 100) * 100),
-    [summary.summary.mentorshipHoursLogged],
+    [summary.summary.mentorshipHoursLogged]
   );
 
   return (
@@ -108,13 +111,16 @@ const MentorshipDashboard: FC<MentorshipDashboardProps> = ({ summary, impact }) 
                 Milestones Achieved
               </Typography>
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {impact.impact.milestonesAchieved}/{impact.impact.totalMilestones}
+                {impact.impact.milestonesAchieved}/
+                {impact.impact.totalMilestones}
               </Typography>
               <LinearProgress
                 variant="determinate"
                 value={
                   impact.impact.totalMilestones > 0
-                    ? (impact.impact.milestonesAchieved / impact.impact.totalMilestones) * 100
+                    ? (impact.impact.milestonesAchieved /
+                        impact.impact.totalMilestones) *
+                      100
                     : 0
                 }
               />

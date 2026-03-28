@@ -1,3 +1,14 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+
+# Private and authenticated areas
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /messages
+Disallow: /notifications
+Disallow: /files
+Disallow: /connections
+Disallow: /referrals
+Disallow: /referral-analytics
+
+Sitemap: https://nexus-2-2.onrender.com/sitemap.xml

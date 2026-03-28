@@ -64,6 +64,7 @@ enum DocumentTypes {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  clearAuthSession: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (
     email: string,
@@ -304,9 +305,17 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('user');
   };
 
+  const clearAuthSession = () => {
+    setToken(null);
+    setApiAccessToken(null);
+    setUser(null);
+    localStorage.removeItem('user');
+  };
+
   const value = {
     user,
     token,
+    clearAuthSession,
     login,
     register,
     registerWithDocuments,

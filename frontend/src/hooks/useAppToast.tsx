@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
-import { IconButton } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { X } from 'lucide-react';
 import { SnackbarKey, useSnackbar } from 'notistack';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
@@ -18,14 +17,13 @@ export const useAppToast = () => {
         persist: isError,
         action: isError
           ? (snackbarId: SnackbarKey) => (
-              <IconButton
+              <button
                 aria-label="Dismiss notification"
-                color="inherit"
-                size="small"
+                className="p-1 hover:opacity-70 transition-opacity"
                 onClick={() => closeSnackbar(snackbarId)}
               >
-                <CloseIcon fontSize="small" />
-              </IconButton>
+                <X size={16} className="text-white" />
+              </button>
             )
           : undefined,
       });

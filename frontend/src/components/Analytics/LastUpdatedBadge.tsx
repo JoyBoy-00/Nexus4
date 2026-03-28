@@ -8,7 +8,7 @@ interface Props {
 
 const formatTimeAgo = (date: Date): string => {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 5)  return 'just now';
+  if (seconds < 5) return 'just now';
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -16,7 +16,11 @@ const formatTimeAgo = (date: Date): string => {
 };
 
 const formatAbsolute = (date: Date): string =>
-  date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  date.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 
 /**
  * Displays a relative "Updated Xs ago" timestamp that re-evaluates every
@@ -46,7 +50,11 @@ const LastUpdatedBadge: FC<Props> = ({ lastUpdated }) => {
         }}
       >
         <AccessTimeIcon sx={{ fontSize: 13, color: 'text.disabled' }} />
-        <Typography variant="caption" color="text.disabled" sx={{ whiteSpace: 'nowrap' }}>
+        <Typography
+          variant="caption"
+          color="text.disabled"
+          sx={{ whiteSpace: 'nowrap' }}
+        >
           Updated {formatTimeAgo(lastUpdated)}
         </Typography>
       </Box>

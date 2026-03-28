@@ -93,8 +93,43 @@ const useConnections = () => {
   const sendRequest = async (userId: string) => {
     try {
       console.log('🔗 useConnections: sendRequest called for userId:', userId);
-      await apiService.connections.send(userId);
+      const suggestedUser = suggestions.find((s) => s.user.id === userId)?.user;
+      const response = await apiService.connections.send(userId);
+
+      const responseConnection = response.data?.connection as
+        | { id?: string; recipient?: PendingRequest['recipient'] }
+        | undefined;
+      const createdId =
+        responseConnection?.id ||
+        response.data?.connectionId ||
+        `pending-${userId}-${Date.now()}`;
+      const createdAtIso = new Date().toISOString();
+
       setSuggestions((prev) => prev.filter((s) => s.user.id !== userId));
+
+      // Immediately move the user to Pending Sent for responsive UX on connect.
+      if (suggestedUser) {
+        setPendingSent((prev) => {
+          const alreadyPresent = prev.some(
+            (request) => request.recipient?.id === userId
+          );
+
+          if (alreadyPresent) {
+            return prev;
+          }
+
+          return [
+            {
+              id: createdId,
+              createdAt: createdAtIso,
+              sentAt: createdAtIso,
+              recipient: responseConnection?.recipient || suggestedUser,
+            },
+            ...prev,
+          ];
+        });
+      }
+
       console.log('✅ useConnections: Connection request sent successfully');
       return true;
     } catch (err: unknown) {

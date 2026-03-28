@@ -786,3 +786,144 @@ All production-grade performance and security optimizations have been successful
 **Audit Completed:** November 3, 2025  
 **Status:** ✅ Production-Ready  
 **Confidence Level:** High (comprehensive testing recommended)
+
+---
+
+## 11. Frontend Refactor Optimization Techniques (March 2026)
+
+### 11.1 Scope
+
+Applied optimization-by-decomposition to large frontend modules to reduce complexity, isolate rendering concerns, and improve testability without behavior regressions.
+
+### 11.2 Completed Optimizations
+
+1. WebSocket service consolidation
+- Confirmed `websocket.improved.ts` as canonical implementation.
+- Removed unused `websocket.ts` and `websocket.production.ts`.
+- Benefit: lower code duplication and fewer runtime inconsistency risks.
+
+2. Connections page decomposition
+- Refactored large page into focused presentational units and orchestration in parent component.
+- Extracted components:
+  - `ConnectionsHeader.tsx`
+  - `ConnectionsFilters.tsx`
+  - `ConnectionsTable.tsx`
+  - `ConnectionsEmptyState.tsx`
+  - `ProfilePreviewDialog.tsx`
+- Benefit: improved maintainability, clearer ownership boundaries, and easier targeted testing.
+
+3. Build and lint stabilization
+- Removed stale imports introduced during extraction work.
+- Benefit: zero-noise compile path for iterative refactor cycles.
+
+4. Smoke testing as refactor guardrail
+- Added smoke tests for extracted Connections components and verified passing execution.
+- Benefit: fast confidence checks before broader regression test runs.
+
+### 11.3 In-Progress Optimizations
+
+1. Showcase context modularization
+- Extracted first wave of hooks in `frontend/src/contexts/hooks/`:
+  - `useShowcaseLoadingState.ts`
+  - `useShowcaseCache.ts`
+  - `useShowcaseTypes.ts`
+  - `useShowcaseCollaboration.ts`
+  - `useShowcaseEngagement.ts`
+- Added hook smoke coverage to validate initialization and baseline behavior.
+
+2. Pending composition optimization
+- Integrate extracted hooks into `ShowcaseContext.tsx` provider composition while preserving `ShowcaseContextType` API to avoid consumer breakage.
+
+### 11.4 Technique Pattern Reused Going Forward
+
+- Step 1: Isolate one concern at a time (state, cache, side effects, view sections).
+- Step 2: Keep parent module as orchestrator.
+- Step 3: Add smoke tests immediately for each extraction.
+- Step 4: Run build + targeted tests before next extraction wave.
+
+
+### 11.5 Showcase Wiring Update (March 2026)
+
+- Provider now consumes extracted hooks for loading, types, and collaboration domains.
+- Duplicate collaboration callback block removed from `ShowcaseContext.tsx`.
+- Technique outcome: reduced monolithic context complexity while preserving existing consumer contract.
+
+
+### 11.6 Showcase Cache Wiring Update (March 2026)
+
+- Provider cache responsibilities are now composed through `useShowcaseCache`.
+- Existing external clear-cache behavior was preserved via wrapper callbacks.
+- Technique outcome: reduced context complexity while maintaining runtime behavior parity.
+
+
+### 11.7 Showcase Engagement Wiring Update (March 2026)
+
+- Provider now delegates engagement concerns to `useShowcaseEngagement`.
+- Duplicate in-provider engagement callbacks were removed.
+- Technique outcome: reduced provider complexity and improved separation of update/comment workflows.
+
+
+### 11.8 Showcase Team Members Wiring Update (March 2026)
+
+- Provider now delegates team-member operations to `useShowcaseTeamMembers`.
+- Duplicate in-provider team-member callbacks were removed.
+- Technique outcome: improved modularity for team management workflows.
+
+
+### 11.9 Showcase Reactions Wiring Update (March 2026)
+
+- Provider now delegates support/follow mutations to `useShowcaseProjectReactions`.
+- Duplicate in-provider reactions callbacks were removed.
+- Technique outcome: improved maintainability and narrower mutation responsibility scope.
+
+
+### 11.10 Showcase Project Core Wiring Update (March 2026)
+
+- Provider now delegates core project state and retrieval/mutation workflows to `useShowcaseProjectCore`.
+- This removed the largest callback block from `ShowcaseContext.tsx`.
+- Technique outcome: major reduction in monolithic context complexity and clearer domain separation.
+
+
+### 11.11 SubCommunity Context Decomposition Update (March 2026)
+
+- Provider now delegates membership/request workflows to `useSubCommunityMembership`.
+- Provider now delegates grouped owned/moderated/member loading to `useSubCommunityMyCommunities`.
+- This removed two large callback/state clusters from `SubCommunityContext.tsx` without changing the public context API.
+- Technique outcome: reduced monolithic provider complexity and improved extraction safety for remaining decomposition passes.
+
+
+### 11.12 SubCommunity Type Listing Decomposition Update (March 2026)
+
+- Provider now delegates listing/filter/cache/pagination orchestration to `useSubCommunityTypeListing`.
+- This removed the largest remaining inline loader/scheduler cluster from `SubCommunityContext.tsx`.
+- Technique outcome: major reduction in provider complexity while preserving existing consumer-facing context methods.
+
+
+### 11.13 SubCommunityFeedPage Component Extraction Update (March 2026)
+
+- Extracted post list rendering and member list rendering into dedicated components.
+- `SubCommunityFeedPage.tsx` now composes these components instead of hosting both large render blocks inline.
+- Technique outcome: reduced page-level monolith size and clearer separation between page orchestration and tab content rendering.
+
+
+### 11.14 SubCommunityFeedPage Header/About Decomposition Update (March 2026)
+
+- Extracted header/banner/action orchestration UI into `SubCommunityHeaderSection`.
+- Extracted About tab card into `SubCommunityAboutCard`.
+- Technique outcome: page now focuses on state/effects/action wiring with reduced view-layer branching in the root component.
+
+
+### 11.15 ProjectDetailsCard Decomposition Update (March 2026)
+
+- Extracted main overview/metrics/actions section into `ProjectOverviewSection`.
+- Extracted bottom action controls into `ProjectDetailFooterActions`.
+- Technique outcome: reduced monolithic JSX in the modal component and clearer separation of orchestration vs presentation.
+
+
+### 11.16 Referrals Page Decomposition Update (March 2026)
+
+- Extracted analytics/header/filter/actions controls into `ReferralsToolbar`.
+- Extracted referral grid item card into `ReferralCard`.
+- Extracted user application list into `MyApplicationsSection`.
+- Technique outcome: reduced top-level page complexity and improved isolation of reusable referral UI blocks.
+

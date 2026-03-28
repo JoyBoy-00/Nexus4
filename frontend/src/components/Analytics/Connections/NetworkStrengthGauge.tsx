@@ -25,12 +25,23 @@ const NetworkStrengthGauge: FC<NetworkStrengthGaugeProps> = ({ strength }) => {
   return (
     <Card>
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            mb: 1,
+          }}
+        >
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             Network Strength Score
           </Typography>
           <Tooltip title={strength.interpretation}>
-            <Typography variant="caption" color="text.secondary" sx={{ cursor: 'help' }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ cursor: 'help' }}
+            >
               How this is computed?
             </Typography>
           </Tooltip>
@@ -55,7 +66,10 @@ const NetworkStrengthGauge: FC<NetworkStrengthGaugeProps> = ({ strength }) => {
               fill="transparent"
               strokeWidth={stroke}
               strokeDasharray={`${circumference} ${circumference}`}
-              style={{ strokeDashoffset, transition: 'stroke-dashoffset 700ms ease-out' }}
+              style={{
+                strokeDashoffset,
+                transition: 'stroke-dashoffset 700ms ease-out',
+              }}
               strokeLinecap="round"
               r={normalizedRadius}
               cx={radius}

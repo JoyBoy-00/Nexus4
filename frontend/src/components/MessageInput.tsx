@@ -218,6 +218,7 @@ const MessageInput: FC<MessageInputProps> = ({
         <IconButton
           onClick={handleEmojiClick}
           disabled={disabled}
+          aria-label="add emoji"
           sx={{
             color: 'text.secondary',
             '&:hover': {

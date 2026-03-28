@@ -44,7 +44,7 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
         [series]: !prev[series],
       }));
     },
-    [],
+    []
   );
 
   const handleExportData = useCallback(() => {
@@ -52,7 +52,14 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
       return;
     }
 
-    const header = ['label', 'bucketStart', 'bucketEnd', 'posts', 'comments', 'votes'];
+    const header = [
+      'label',
+      'bucketStart',
+      'bucketEnd',
+      'posts',
+      'comments',
+      'votes',
+    ];
     const rows = data.timeline.map((point) => [
       point.label,
       point.bucketStart,
@@ -64,9 +71,7 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
 
     const csv = [header, ...rows]
       .map((row) =>
-        row
-          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
-          .join(','),
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
       )
       .join('\n');
 
@@ -92,7 +97,9 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
   if (!data?.timeline) {
     return (
       <Paper sx={{ p: 3, mb: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary">No engagement data available</Typography>
+        <Typography color="text.secondary">
+          No engagement data available
+        </Typography>
       </Paper>
     );
   }
@@ -114,7 +121,13 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
     <Paper sx={{ p: 3, mb: 3 }}>
       <Stack spacing={2}>
         {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <Typography variant="h6">
             Engagement Timeline - {data.period}
           </Typography>
@@ -168,11 +181,7 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
                 size="small"
               />
             }
-            label={
-              <Typography variant="caption">
-                Posts
-              </Typography>
-            }
+            label={<Typography variant="caption">Posts</Typography>}
           />
           <FormControlLabel
             control={
@@ -182,11 +191,7 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
                 size="small"
               />
             }
-            label={
-              <Typography variant="caption">
-                Comments
-              </Typography>
-            }
+            label={<Typography variant="caption">Comments</Typography>}
           />
           <FormControlLabel
             control={
@@ -196,11 +201,7 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
                 size="small"
               />
             }
-            label={
-              <Typography variant="caption">
-                Votes
-              </Typography>
-            }
+            label={<Typography variant="caption">Votes</Typography>}
           />
         </Box>
 
@@ -221,13 +222,7 @@ const EngagementAreaChart: React.FC<EngagementAreaChartProps> = ({
                   <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
                   <stop offset="95%" stopColor="#8884d8" stopOpacity={0.1} />
                 </linearGradient>
-                <linearGradient
-                  id="colorComments"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
+                <linearGradient id="colorComments" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
                   <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.1} />
                 </linearGradient>

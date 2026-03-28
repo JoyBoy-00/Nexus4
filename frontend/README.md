@@ -41,12 +41,33 @@ A beautiful, modern React frontend for the Nexus networking platform built with 
    npm install
    ```
 
-3. Start the development server:
+3. Configure environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+
+   Required:
+   - `VITE_BACKEND_URL`: Backend API base URL (for example `http://localhost:3000`)
+
+   Optional:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `VITE_FIREBASE_VAPID_KEY`
+   - `VITE_CORS_PROXY`
+   - `VITE_DEBUG`
+
+   Note: Firebase variables are optional as a group. If any Firebase variable is set, all Firebase variables must be set.
+
+4. Start the development server:
    ```bash
    npm start
    ```
 
-4. Open [http://localhost:3001](http://localhost:3001) in your browser
+5. Open [http://localhost:3001](http://localhost:3001) in your browser
 
 ## Project Structure
 
@@ -107,6 +128,8 @@ frontend/
 ## API Integration
 
 The frontend communicates with the backend API at `http://localhost:3000`. Make sure the backend server is running before using the frontend.
+
+At startup, the app validates required environment variables and fails fast when configuration is invalid.
 
 ### Authentication Endpoints
 - `POST /auth/login` - User login

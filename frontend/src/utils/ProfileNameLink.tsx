@@ -25,6 +25,7 @@ import Popper from '@mui/material/Popper';
 import Fade from '@mui/material/Fade';
 import { ProfilePreviewResponse } from '@/services/profileService';
 import { useTheme } from '@/contexts/ThemeContext';
+import { buildProfilePath } from '@/utils/profileRoute';
 
 interface User {
   id?: string;
@@ -51,6 +52,7 @@ interface ProfileNameLinkProps {
   linkToProfile?: boolean;
   showAvatar?: boolean;
   showAvaterPopUp?: boolean;
+  showProfilePopup?: boolean;
   showRoleBadge?: boolean;
   showYouBadge?: boolean;
   onlyFirstName?: boolean;
@@ -66,6 +68,7 @@ export const ProfileNameLink: FC<ProfileNameLinkProps> = ({
   linkToProfile = true,
   showAvatar = false,
   showAvaterPopUp = false,
+  showProfilePopup = true,
   showRoleBadge = true,
   showYouBadge = true,
   onlyFirstName = false,
@@ -130,6 +133,12 @@ export const ProfileNameLink: FC<ProfileNameLinkProps> = ({
   const RoleIcon = roleConfig.icon;
 
   useEffect(() => {
+    if (!showProfilePopup) {
+      setAnchorEl(null);
+      setPreviewData(null);
+      return;
+    }
+
     if (!open || !user?.id) return;
 
     let isMounted = true;
@@ -147,9 +156,11 @@ export const ProfileNameLink: FC<ProfileNameLinkProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [open, user?.id, showAvaterPopUp, getProfilePreview]);
+  }, [open, user?.id, showAvaterPopUp, showProfilePopup, getProfilePreview]);
 
   const handleMouseEnter = (event: MouseEvent<HTMLElement>) => {
+    if (!showProfilePopup) return;
+
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
     }
@@ -157,6 +168,8 @@ export const ProfileNameLink: FC<ProfileNameLinkProps> = ({
   };
 
   const handleMouseLeave = () => {
+    if (!showProfilePopup) return;
+
     hoverTimeoutRef.current = setTimeout(() => {
       if (popperRef.current && !popperRef.current.matches(':hover')) {
         setAnchorEl(null);
@@ -180,7 +193,7 @@ export const ProfileNameLink: FC<ProfileNameLinkProps> = ({
 
   const handleOnClick = () => {
     if (linkToProfile && user?.id) {
-      navigate(`/profile/${user.id}`);
+      navigate(buildProfilePath({ id: user.id, name: user.name }));
       setAnchorEl(null);
     }
   };
@@ -381,17 +394,31 @@ export const ProfileNameLink: FC<ProfileNameLinkProps> = ({
       )}
 
       {/* Profile Preview Popper */}
-      {previewData && (
+      {showProfilePopup && previewData && (
         <Popper
           open={open}
           anchorEl={anchorEl}
           placement="bottom-start"
           transition
-          disablePortal
           modifiers={[
             {
               name: 'offset',
               options: { offset: [0, 8] },
+            },
+            {
+              name: 'flip',
+              options: {
+                fallbackPlacements: ['top-start', 'top', 'bottom-end'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                boundary: 'viewport',
+                rootBoundary: 'viewport',
+                padding: 12,
+                altAxis: true,
+              },
             },
           ]}
           sx={(theme) => ({

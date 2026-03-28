@@ -9,7 +9,12 @@ interface Props {
   size?: 'small' | 'medium';
 }
 
-const RefreshButton: FC<Props> = ({ onRefresh, isLoading, disabled = false, size = 'small' }) => (
+const RefreshButton: FC<Props> = ({
+  onRefresh,
+  isLoading,
+  disabled = false,
+  size = 'small',
+}) => (
   <Tooltip title={isLoading ? 'Refreshing…' : 'Refresh data'} arrow>
     {/* span wrapper lets Tooltip work even when button is disabled */}
     <span>

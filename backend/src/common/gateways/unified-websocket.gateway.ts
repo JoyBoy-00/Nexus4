@@ -109,7 +109,7 @@ export class UnifiedWebSocketGateway
   private redisSub: Redis; // Separate connection for pub/sub
 
   // Metrics tracking
-  private readonly metrics: ConnectionMetrics = {
+  private metrics: ConnectionMetrics = {
     totalConnections: 0,
     activeConnections: 0,
     totalMessages: 0,
@@ -143,42 +143,26 @@ export class UnifiedWebSocketGateway
    * Initialize Redis connections for distributed state
    */
   private initializeRedis(): void {
-    const disableRedis = this.configService.get('DISABLE_REDIS', 'false');
     const redisUrl = this.configService.get('REDIS_URL');
-
-    // Skip Redis initialization if explicitly disabled
-    if (disableRedis === 'true') {
-      this.logger.warn('⚠️ Redis disabled - WebSocket will operate in single-server mode');
-      this.redis = this.createMockRedisClient();
-      this.redisSub = this.createMockRedisClient();
-      return;
-    }
-
-    // Skip Redis initialization if not configured
-    if (!redisUrl || redisUrl.trim() === '') {
-      this.logger.warn('⚠️ Redis not configured - WebSocket will operate in single-server mode');
-      this.redis = this.createMockRedisClient();
-      this.redisSub = this.createMockRedisClient();
-      return;
-    }
 
     // Main Redis connection
     this.redis = new Redis(redisUrl, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      enableOfflineQueue: false,
-      lazyConnect: true, // Never auto-connect
-      retryStrategy: () => false, // Disable retries
-    } as any);
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      retryStrategy: (times) => {
+        if (times > 3) {
+          this.logger.error('❌ Redis max retries exceeded');
+          return null;
+        }
+        return Math.min(times * 200, 2000);
+      },
+    });
 
     // Pub/Sub connection
     this.redisSub = new Redis(redisUrl, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      enableOfflineQueue: false,
-      lazyConnect: true, // Never auto-connect
-      retryStrategy: () => false, // Disable retries
-    } as any);
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+    });
 
     this.redis.on('connect', () => {
       this.logger.log('🔗 Main Redis connected');
@@ -188,41 +172,17 @@ export class UnifiedWebSocketGateway
       this.logger.log('🔗 Pub/Sub Redis connected');
     });
 
-    this.redis.on('error', (err: any) => {
-      this.logger.warn('⚠️ Main Redis unavailable, using mock client:', err.message);
-      this.redis = this.createMockRedisClient();
+    this.redis.on('error', (err) => {
+      this.logger.error('❌ Main Redis error:', err);
       this.metrics.errors++;
     });
 
-    this.redisSub.on('error', (err: any) => {
-      this.logger.warn('⚠️ Pub/Sub Redis unavailable, using mock client:', err.message);
-      this.redisSub = this.createMockRedisClient();
+    this.redisSub.on('error', (err) => {
+      this.logger.error('❌ Pub/Sub Redis error:', err);
     });
 
     // Subscribe to cross-server events
     this.setupCrossServerEvents();
-  }
-
-  /**
-   * Create mock Redis client for development
-   */
-  private createMockRedisClient(): any {
-    return {
-      get: async () => null,
-      set: async () => 'OK',
-      del: async () => 1,
-      setex: async () => 'OK',
-      incr: async () => 1,
-      lpush: async () => 1,
-      lrange: async () => [],
-      expire: async () => 1,
-      ttl: async () => -1,
-      keys: async () => [],
-      publish: async () => 0,
-      subscribe: async () => {},
-      unsubscribe: async () => {},
-      on: () => {},
-    };
   }
 
   /**
@@ -344,16 +304,13 @@ export class UnifiedWebSocketGateway
     client.userRole = payload.role;
     client.lastActivity = Date.now();
     client.deviceInfo = deviceInfo;
-    client.sessionId = `${client.userId}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    client.sessionId = `${client.userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Store connection in multi-device map
     if (!this.connectedUsers.has(client.userId)) {
       this.connectedUsers.set(client.userId, new Set());
     }
-    const userSockets = this.connectedUsers.get(client.userId);
-    if (userSockets) {
-      userSockets.add(client);
-    }
+    this.connectedUsers.get(client.userId)!.add(client);
     this.socketToUser.set(client.id, client.userId);
 
     // Join user-specific room
@@ -389,7 +346,7 @@ export class UnifiedWebSocketGateway
     });
 
     this.logger.log(
-      `✅ User ${client.userId} authenticated (${client.userEmail}) - Device: ${deviceInfo?.type || 'unknown'} - Total devices: ${this.connectedUsers.get(client.userId)?.size ?? 0}`,
+      `✅ User ${client.userId} authenticated (${client.userEmail}) - Device: ${deviceInfo?.type || 'unknown'} - Total devices: ${this.connectedUsers.get(client.userId)!.size}`,
     );
   }
 
@@ -456,9 +413,8 @@ export class UnifiedWebSocketGateway
     }
 
     try {
-      const userId = client.userId ?? '';
       const validChannels = data.channels.filter((channel) =>
-        this.isChannelAllowed(userId, channel),
+        this.isChannelAllowed(client.userId!, channel),
       );
 
       for (const channel of validChannels) {
@@ -681,7 +637,7 @@ export class UnifiedWebSocketGateway
         event,
         data,
         timestamp: new Date().toISOString(),
-        id: `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       };
 
       // Add to queue (list)
@@ -715,8 +671,7 @@ export class UnifiedWebSocketGateway
           `📬 Delivering ${messages.length} queued messages to ${userId}`,
         );
 
-        const reversedMessages = messages.slice().reverse();
-        for (const msgStr of reversedMessages) {
+        for (const msgStr of messages.reverse()) {
           const message = JSON.parse(msgStr);
           client.emit(message.event, message.data);
         }

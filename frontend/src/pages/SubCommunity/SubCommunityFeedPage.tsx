@@ -7,7 +7,6 @@ import {
   MouseEvent,
   ComponentType,
   LazyExoticComponent,
-  Fragment,
   ReactNode,
   Suspense,
 } from 'react';
@@ -23,42 +22,21 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  Chip,
-  Avatar,
   Container,
   Tabs,
   Tab,
-  IconButton,
   Menu,
   MenuItem,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  Divider,
-  Card,
-  CardContent,
   Skeleton,
-  Tooltip,
 } from '@mui/material';
 import {
-  People,
-  Article,
-  Public,
   Lock,
   ArrowBack,
-  Add,
-  MoreVert,
-  AdminPanelSettings,
-  Shield,
   Person,
-  ExitToApp,
+  Shield,
   Block,
   Edit,
   Delete,
-  Group,
-  Settings,
-  Refresh,
 } from '@mui/icons-material';
 import { Post as PostType } from '@/types/post';
 // Lazy-load heavy components so the page renders a skeleton first
@@ -108,7 +86,6 @@ const Post = lazy(() =>
 ) as LazyExoticComponent<ComponentType<PostComponentProps>>;
 import { getErrorMessage } from '@/utils/errorHandler';
 import { Link } from 'react-router-dom';
-import { useTheme } from '@mui/material/styles';
 import {
   SubCommunityRole,
   SubCommunityMember,
@@ -131,8 +108,11 @@ const SubCommunityEditBox = lazy(() =>
     };
   })
 );
-import { ProfileNameLink } from '@/utils/ProfileNameLink';
 import { useNotification } from '@/contexts/NotificationContext';
+import { SubCommunityPostsList } from './components/SubCommunityPostsList';
+import { SubCommunityMembersList } from './components/SubCommunityMembersList';
+import { SubCommunityHeaderSection } from './components/SubCommunityHeaderSection';
+import { SubCommunityAboutCard } from './components/SubCommunityAboutCard';
 
 // Tab panel component
 function TabPanel(props: {
@@ -183,7 +163,6 @@ const SubCommunityFeedPage: FC = () => {
     error: feedError,
   } = usePosts();
   const { user } = useAuth();
-  const theme = useTheme();
   const { showNotification } = useNotification();
 
   const [activeTab, setActiveTab] = useState(0);
@@ -399,407 +378,6 @@ const SubCommunityFeedPage: FC = () => {
     setCommunityMenuAnchor(null);
   };
 
-  const renderRoleIcon = (role: SubCommunityRole) => {
-    switch (role) {
-      case SubCommunityRole.OWNER:
-        return <AdminPanelSettings color="primary" />;
-      case SubCommunityRole.MODERATOR:
-        return <Shield color="secondary" />;
-      default:
-        return <Person color="action" />;
-    }
-  };
-
-  const renderPosts = () => {
-    // Show skeleton loading UI for first page (tailwind/emerald style)
-    if (feedLoading && Number(pagination.page) === 1) {
-      return (
-        <Box
-          sx={{
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            border: 1,
-            borderColor: 'divider',
-            p: 3,
-            mt: 4,
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              mb: 3,
-            }}
-          >
-            <Typography variant="h6">Posts</Typography>
-            <Skeleton
-              variant="rectangular"
-              width={80}
-              height={24}
-              sx={{ borderRadius: 1 }}
-              animation="wave"
-            />
-          </Box>
-
-          <Box sx={{ display: 'grid', gap: 2 }}>
-            {[...Array(3)].map((_, index) => (
-              <Box
-                key={index}
-                sx={{
-                  display: 'flex',
-                  gap: 2,
-                  p: 2,
-                  borderRadius: 2,
-                  border: 1,
-                  borderColor: 'divider',
-                }}
-              >
-                <Skeleton
-                  variant="circular"
-                  width={80}
-                  height={80}
-                  animation="wave"
-                />
-                <Box sx={{ flex: 1 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      mb: 1,
-                    }}
-                  >
-                    <Skeleton
-                      variant="text"
-                      width="70%"
-                      height={24}
-                      animation="wave"
-                    />
-                    <Skeleton
-                      variant="rectangular"
-                      width={64}
-                      height={24}
-                      sx={{ borderRadius: 1 }}
-                      animation="wave"
-                    />
-                  </Box>
-                  <Skeleton
-                    variant="text"
-                    width="100%"
-                    height={16}
-                    animation="wave"
-                  />
-                  <Skeleton
-                    variant="text"
-                    width="66%"
-                    height={16}
-                    animation="wave"
-                  />
-                  <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                    <Skeleton
-                      variant="rectangular"
-                      width={80}
-                      height={32}
-                      sx={{ borderRadius: 1 }}
-                      animation="wave"
-                    />
-                    <Skeleton
-                      variant="rectangular"
-                      width={80}
-                      height={32}
-                      sx={{ borderRadius: 1 }}
-                      animation="wave"
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      );
-    }
-
-    if (!subCommunityFeed || subCommunityFeed.length === 0) {
-      return (
-        <Box
-          sx={{
-            textAlign: 'center',
-            py: 6,
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-          }}
-        >
-          <Article sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            No posts yet
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Be the first to share something in this community!
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setOpenForm(true)}
-          >
-            Create First Post
-          </Button>
-        </Box>
-      );
-    }
-
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {subCommunityFeed.map((post) => (
-          <Suspense
-            key={post.id}
-            fallback={
-              <Card sx={{ mb: 3 }}>
-                <Box
-                  sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2 }}
-                >
-                  <Skeleton
-                    variant="circular"
-                    width={48}
-                    height={48}
-                    animation="wave"
-                  />
-                  <Box sx={{ flex: 1 }}>
-                    <Skeleton
-                      variant="text"
-                      width="40%"
-                      height={20}
-                      animation="wave"
-                      sx={{ mb: 0.5 }}
-                    />
-                    <Skeleton
-                      variant="text"
-                      width="30%"
-                      height={16}
-                      animation="wave"
-                    />
-                  </Box>
-                  <Skeleton
-                    variant="circular"
-                    width={32}
-                    height={32}
-                    animation="wave"
-                  />
-                </Box>
-
-                <Box sx={{ px: 2 }}>
-                  <Skeleton
-                    variant="rectangular"
-                    width={120}
-                    height={28}
-                    sx={{ borderRadius: 1, my: 1 }}
-                    animation="wave"
-                  />
-                </Box>
-
-                <CardContent>
-                  <Skeleton
-                    variant="text"
-                    width="100%"
-                    height={16}
-                    animation="wave"
-                    sx={{ mb: 1 }}
-                  />
-                  <Skeleton
-                    variant="text"
-                    width="80%"
-                    height={16}
-                    animation="wave"
-                    sx={{ mb: 1 }}
-                  />
-                  <Skeleton
-                    variant="rectangular"
-                    width="100%"
-                    height={192}
-                    sx={{ borderRadius: 1 }}
-                    animation="wave"
-                  />
-                </CardContent>
-
-                <Box sx={{ px: 2, pb: 2 }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Skeleton
-                      variant="rectangular"
-                      width={80}
-                      height={32}
-                      sx={{ borderRadius: 1 }}
-                      animation="wave"
-                    />
-                    <Skeleton
-                      variant="rectangular"
-                      width={80}
-                      height={32}
-                      sx={{ borderRadius: 1 }}
-                      animation="wave"
-                    />
-                    <Skeleton
-                      variant="rectangular"
-                      width={80}
-                      height={32}
-                      sx={{ borderRadius: 1 }}
-                      animation="wave"
-                    />
-                  </Box>
-                </Box>
-              </Card>
-            }
-          >
-            <Post
-              post={post}
-              onClick={() =>
-                navigate(`/posts/${post.id}`, {
-                  state: { from: `/subcommunities/${id}` },
-                })
-              }
-            />
-          </Suspense>
-        ))}
-      </Box>
-    );
-  };
-
-  const renderMembersTab = () => {
-    if (subCommunityLoading) {
-      // show skeletons while community data is loading (theme-aware)
-      return (
-        <Box
-          sx={{
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            border: 1,
-            borderColor: 'divider',
-            p: 3,
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              mb: 2,
-            }}
-          >
-            <Typography variant="h6">Members</Typography>
-            <Skeleton
-              variant="rectangular"
-              width={64}
-              height={16}
-              sx={{ borderRadius: 1 }}
-              animation="wave"
-            />
-          </Box>
-
-          <Box sx={{ display: 'grid', gap: 2 }}>
-            {[1, 2, 3, 4].map((i) => (
-              <Box
-                key={i}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                }}
-              >
-                <Skeleton
-                  variant="circular"
-                  width={40}
-                  height={40}
-                  animation="wave"
-                />
-                <Box sx={{ flex: 1 }}>
-                  <Skeleton
-                    variant="text"
-                    width="35%"
-                    height={16}
-                    animation="wave"
-                    sx={{ mb: 0.5 }}
-                  />
-                  <Skeleton
-                    variant="text"
-                    width="25%"
-                    height={14}
-                    animation="wave"
-                  />
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      );
-    }
-
-    if (
-      !currentSubCommunity?.members ||
-      currentSubCommunity.members.length === 0
-    ) {
-      return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Group sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">
-            No members yet
-          </Typography>
-        </Box>
-      );
-    }
-
-    return (
-      <List>
-        {currentSubCommunity.members.map((member) => (
-          <Fragment key={member.id}>
-            <ListItem
-              secondaryAction={
-                (userRole === SubCommunityRole.OWNER ||
-                  (userRole === SubCommunityRole.MODERATOR &&
-                    member.role === SubCommunityRole.MEMBER)) &&
-                member.userId !== user?.id && (
-                  <IconButton
-                    edge="end"
-                    aria-label="member actions"
-                    onClick={(e) => openMemberMenu(e, member)}
-                  >
-                    <MoreVert />
-                  </IconButton>
-                )
-              }
-            >
-              <ListItemAvatar>
-                <Avatar src={member.user?.profile?.avatarUrl || undefined}>
-                  {member.user.name.charAt(0)}
-                </Avatar>
-              </ListItemAvatar>
-              <ListItemText
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <ProfileNameLink
-                      user={{
-                        id: member.user.id,
-                        name: member.user.name,
-                        role: member.user.role,
-                        profile: {
-                          avatarUrl:
-                            member.user?.profile?.avatarUrl || undefined,
-                        },
-                      }}
-                      showRoleBadge={true}
-                      linkToProfile={true}
-                    />
-                    {renderRoleIcon(member.role)}
-                  </Box>
-                }
-                secondary={member.role}
-              />
-            </ListItem>
-            <Divider variant="inset" component="li" />
-          </Fragment>
-        ))}
-      </List>
-    );
-  };
-
   if (subCommunityLoading) {
     return (
       <Box
@@ -916,284 +494,28 @@ const SubCommunityFeedPage: FC = () => {
   return (
     <>
       <Box sx={{ maxWidth: '1200px', margin: '0 auto', p: { xs: 1, sm: 2 } }}>
-        {/*  Navigation */}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 2,
-            flexWrap: 'wrap',
+        <SubCommunityHeaderSection
+          community={currentSubCommunity}
+          isMember={isMember}
+          userRole={userRole}
+          hasPendingRequest={hasPendingRequest}
+          onRefresh={() => {
+            if (id) {
+              getSubCommunity(id);
+              getSubCommunityFeed(id, 1);
+              showSnackbar('Community refreshed!', 'success');
+            }
           }}
-        >
-          {/* Back Button (left side) */}
-          <Button
-            component={Link}
-            to="/subcommunities"
-            startIcon={<ArrowBack />}
-            sx={{ mt: 2, mb: 2, mr: 2 }}
-          >
-            Back to Communities
-          </Button>
-
-          {/* Refresh Button with Tooltip (right side) */}
-          <Tooltip title="Refresh community">
-            <IconButton
-              onClick={() => {
-                if (id) {
-                  getSubCommunity(id);
-                  getSubCommunityFeed(id, 1);
-                  showSnackbar('Community refreshed!', 'success');
-                }
-              }}
-              size="large"
-              sx={{
-                borderRadius: '50%',
-                bgcolor: 'background.green',
-                boxShadow: 1,
-                '&:hover': { bgcolor: 'primary.light' },
-              }}
-              aria-label="Refresh Community"
-            >
-              <Refresh />
-            </IconButton>
-          </Tooltip>
-        </Box>
-
-        {/* Community Header with Banner */}
-        <Box
-          sx={{
-            mb: 4,
-            borderRadius: 3,
-            overflow: 'hidden',
-            boxShadow: 2,
-            position: 'relative',
-          }}
-        >
-          {/* Banner Image */}
-          <Box
-            sx={{
-              height: { xs: 120, md: 160 },
-              backgroundImage: currentSubCommunity.bannerUrl
-                ? `url(${currentSubCommunity.bannerUrl}), linear-gradient(to bottom, rgba(27,228,9,0.3), rgba(149,240,129,0.7))`
-                : 'linear-gradient(to bottom, rgba(27,228,9,0.3), rgba(149,240,129,0.7))',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              position: 'relative',
-            }}
-          />
-
-          {/* Community Info Overlay */}
-          <Box
-            sx={{
-              p: 3,
-              bgcolor: 'background.paper',
-              position: 'relative',
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', md: 'row' },
-                justifyContent: 'space-between',
-                alignItems: { xs: 'flex-start', md: 'center' },
-                gap: 2,
-              }}
-            >
-              {/* Left Side - Community Info */}
-              <Box sx={{ flex: 1 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
-                >
-                  <Avatar
-                    src={currentSubCommunity?.iconUrl ?? undefined}
-                    sx={{
-                      width: 64,
-                      height: 64,
-                      border: `3px solid ${theme.palette.background.paper}`,
-                      boxShadow: 2,
-                    }}
-                  />
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        variant="h3"
-                        component="h1"
-                        sx={{ fontWeight: 700, mb: 1 }}
-                      >
-                        r/{currentSubCommunity.name}
-                      </Typography>
-                      {(userRole === SubCommunityRole.OWNER ||
-                        userRole === SubCommunityRole.MODERATOR) && (
-                        <IconButton onClick={openCommunityMenu} size="small">
-                          <Settings />
-                        </IconButton>
-                      )}
-                    </Box>
-                    <Typography
-                      variant="body1"
-                      color="text.secondary"
-                      sx={{ mb: 2 }}
-                    >
-                      {currentSubCommunity.description}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Chip
-                    icon={currentSubCommunity.isPrivate ? <Lock /> : <Public />}
-                    label={
-                      currentSubCommunity.isPrivate
-                        ? 'Private Community'
-                        : 'Public Community'
-                    }
-                    size="medium"
-                    color={
-                      currentSubCommunity.isPrivate ? 'default' : 'primary'
-                    }
-                    sx={{ fontWeight: 600 }}
-                  />
-                  <Chip
-                    icon={<People />}
-                    label={`${currentSubCommunity._count?.members?.toLocaleString() || 0} members`}
-                    size="medium"
-                    variant="outlined"
-                  />
-                  <Chip
-                    icon={<Article />}
-                    label={`${currentSubCommunity._count?.posts?.toLocaleString() || 0} posts`}
-                    size="medium"
-                    variant="outlined"
-                  />
-                  {userRole === SubCommunityRole.OWNER && (
-                    <Button
-                      variant="outlined"
-                      onClick={() =>
-                        navigate(
-                          `/moderation/subcommunities/${currentSubCommunity.id}/join-requests`
-                        )
-                      }
-                      size="medium"
-                      sx={{ borderRadius: 2, fontWeight: 600 }}
-                    >
-                      Moderation
-                    </Button>
-                  )}
-                </Box>
-              </Box>
-
-              {/* Right Side - Actions */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                  minWidth: '200px',
-                }}
-              >
-                {currentSubCommunity.owner && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      mb: 1,
-                    }}
-                  >
-                    <Avatar sx={{ width: 32, height: 32 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Owned by
-                      <ProfileNameLink
-                        user={{
-                          id: currentSubCommunity.owner.id,
-                          name: currentSubCommunity.owner.name,
-                        }}
-                        onlyFirstName={true}
-                      />
-                    </Typography>
-                  </Box>
-                )}
-
-                {/* Join/Request to Join Buttons */}
-                {!isMember && currentSubCommunity.isPrivate && (
-                  <Button
-                    variant="contained"
-                    onClick={handleJoinRequest}
-                    disabled={hasPendingRequest}
-                    size="large"
-                    startIcon={<Lock />}
-                    sx={{ borderRadius: 2, fontWeight: 600 }}
-                  >
-                    {hasPendingRequest ? 'Request Pending' : 'Request to Join'}
-                  </Button>
-                )}
-
-                {!isMember && !currentSubCommunity.isPrivate && (
-                  <Button
-                    variant="contained"
-                    onClick={handleJoinRequest}
-                    disabled={hasPendingRequest}
-                    size="large"
-                    startIcon={<People />}
-                    sx={{
-                      borderRadius: 2,
-                      fontWeight: 600,
-                      minHeight: '48px', // Fixed height for uniform appearance
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    Join Community
-                  </Button>
-                )}
-
-                {/* Create Post Button (for members) */}
-                {isMember && (
-                  <Button
-                    variant="contained"
-                    onClick={() => setOpenForm(true)}
-                    size="large"
-                    startIcon={<Add />}
-                    sx={{
-                      background: 'primary.main',
-                      borderRadius: 2,
-                      fontWeight: 600,
-                      minHeight: '48px', // Fixed height for uniform appearance
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    Create Post
-                  </Button>
-                )}
-
-                {/* Leave Community Button (for members) */}
-                {isMember && userRole !== SubCommunityRole.OWNER && (
-                  <Button
-                    variant="outlined"
-                    onClick={handleLeaveCommunity}
-                    size="small"
-                    startIcon={<ExitToApp />}
-                    sx={{
-                      borderRadius: 2,
-                      fontWeight: 600,
-                      mt: 1,
-                      minHeight: '48px', // Fixed height for uniform appearance
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    Leave Community
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </Box>
-        </Box>
+          onOpenCommunityMenu={openCommunityMenu}
+          onJoinRequest={handleJoinRequest}
+          onCreatePost={() => setOpenForm(true)}
+          onLeaveCommunity={handleLeaveCommunity}
+          onOpenModeration={() =>
+            navigate(
+              `/moderation/subcommunities/${currentSubCommunity.id}/join-requests`
+            )
+          }
+        />
 
         {/* Tabs for different views */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -1211,7 +533,18 @@ const SubCommunityFeedPage: FC = () => {
         <TabPanel value={activeTab} index={0}>
           {isMember || !currentSubCommunity.isPrivate ? (
             <>
-              {renderPosts()}
+              <SubCommunityPostsList
+                feedLoading={feedLoading}
+                currentPage={Number(pagination.page)}
+                posts={subCommunityFeed ?? []}
+                onCreateFirstPost={() => setOpenForm(true)}
+                onPostClick={(postId) =>
+                  navigate(`/posts/${postId}`, {
+                    state: { from: `/subcommunities/${id}` },
+                  })
+                }
+                PostComponent={Post}
+              />
 
               {pagination.hasNext && (
                 <Box
@@ -1275,40 +608,17 @@ const SubCommunityFeedPage: FC = () => {
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          {renderMembersTab()}
+          <SubCommunityMembersList
+            loading={subCommunityLoading}
+            currentSubCommunity={currentSubCommunity}
+            userId={user?.id}
+            userRole={userRole}
+            onOpenMemberMenu={openMemberMenu}
+          />
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
-          <Card>
-            <CardContent>
-              <Typography variant="h5" gutterBottom>
-                About r/{currentSubCommunity.name}
-              </Typography>
-              <Typography variant="body1" paragraph>
-                {currentSubCommunity.description}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Created on{' '}
-                {new Date(currentSubCommunity.createdAt).toLocaleDateString()}
-              </Typography>
-              <Box sx={{ mt: 2 }}>
-                <Chip
-                  icon={currentSubCommunity.isPrivate ? <Lock /> : <Public />}
-                  label={currentSubCommunity.isPrivate ? 'Private' : 'Public'}
-                  sx={{ mr: 1 }}
-                />
-                <Chip
-                  icon={<People />}
-                  label={`${currentSubCommunity._count?.members || 0} members`}
-                  sx={{ mr: 1 }}
-                />
-                <Chip
-                  icon={<Article />}
-                  label={`${currentSubCommunity._count?.posts || 0} posts`}
-                />
-              </Box>
-            </CardContent>
-          </Card>
+          <SubCommunityAboutCard community={currentSubCommunity} />
         </TabPanel>
 
         {/* Create Post Dialog */}

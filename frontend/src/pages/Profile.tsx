@@ -57,6 +57,7 @@ import { isAxiosError } from '@/services/api';
 import { getErrorMessage } from '@/utils/errorHandler';
 import Loader from '@/utils/loader';
 import { useNotification } from '@/contexts/NotificationContext';
+import { extractUserIdFromProfileSlug } from '@/utils/profileRoute';
 // import RecentTransactions from '@/components/Profile/RecentTransaction';
 
 const Profile: FC = () => {
@@ -93,10 +94,11 @@ const Profile: FC = () => {
     updateNotificationPreference,
   } = useProfile();
 
-  const { userId } = useParams<{ userId?: string }>();
+  const { profileSlug } = useParams<{ profileSlug?: string }>();
   const { user: currentUser } = useAuth();
   const { showNotification } = useNotification();
   const navigate = useNavigate();
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [localProfile, setLocalProfile] = useState({
@@ -120,7 +122,7 @@ const Profile: FC = () => {
   const [newFlairLabel, setNewFlairLabel] = useState('');
 
   // Check if viewing own profile or another user's profile
-  const isOwnProfile = !userId || userId === currentUser?.id;
+  const isOwnProfile = !profileSlug || resolvedUserId === currentUser?.id;
 
   // Initialize local profile
   useEffect(() => {
@@ -147,13 +149,25 @@ const Profile: FC = () => {
 
     const loadProfile = async () => {
       try {
-        if (isOwnProfile) {
-          await refreshProfile();
-        } else if (userId) {
-          await searchedProfile(userId);
+        let targetUserId: string | null = null;
+
+        if (!profileSlug) {
+          targetUserId = currentUser?.id || null;
+        } else {
+          targetUserId = extractUserIdFromProfileSlug(profileSlug);
         }
 
-        const targetId = userId || currentUser?.id;
+        setResolvedUserId(targetUserId);
+
+        if (!profileSlug || targetUserId === currentUser?.id) {
+          await refreshProfile();
+        } else if (targetUserId) {
+          await searchedProfile(targetUserId);
+        } else {
+          throw new Error('Profile identifier missing from URL');
+        }
+
+        const targetId = targetUserId || currentUser?.id;
         if (targetId) {
           await Promise.all([
             fetchMemberExperience(targetId),
@@ -161,7 +175,7 @@ const Profile: FC = () => {
           ]);
         }
 
-        if (isOwnProfile) {
+        if (!profileSlug || targetUserId === currentUser?.id) {
           await Promise.all([
             fetchMemberSettings(),
             fetchNotificationPreference(),
@@ -184,8 +198,7 @@ const Profile: FC = () => {
       isMounted = false;
     };
   }, [
-    userId,
-    isOwnProfile,
+    profileSlug,
     refreshProfile,
     searchedProfile,
     currentUser?.id,
@@ -209,7 +222,7 @@ const Profile: FC = () => {
   }, [badgeDialogOpen, allBadges.length, fetchAllBadges]);
 
   const handleFollowToggle = async () => {
-    const targetId = userId || profile?.user.id;
+    const targetId = resolvedUserId || profile?.user.id;
     if (!targetId || isOwnProfile) return;
 
     try {
@@ -289,7 +302,7 @@ const Profile: FC = () => {
     value: boolean
   ) => {
     try {
-      const targetId = userId || currentUser?.id;
+      const targetId = resolvedUserId || currentUser?.id;
       if (
         key === 'showBadges' ||
         key === 'showRecentActivity' ||
@@ -437,8 +450,8 @@ const Profile: FC = () => {
     try {
       if (isOwnProfile) {
         await refreshProfile();
-      } else if (userId) {
-        await searchedProfile(userId);
+      } else if (resolvedUserId) {
+        await searchedProfile(resolvedUserId);
       }
       setSuccess('Profile refreshed successfully!');
     } catch (err) {

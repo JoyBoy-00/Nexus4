@@ -11,6 +11,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import Card from '@mui/material/Card';
 import { ProfileNameLink } from '@/utils/ProfileNameLink';
+import { buildProfilePath } from '@/utils/profileRoute';
 
 export default function RecommendedConnection() {
   const {
@@ -469,7 +470,10 @@ export default function RecommendedConnection() {
             </>
           )}
         </button>
-        <a href={`/profile/${user.id}`} className={secondaryButtonClass}>
+        <a
+          href={buildProfilePath({ id: user.id, name: user.name })}
+          className={secondaryButtonClass}
+        >
           View Profile
         </a>
       </div>

@@ -1132,7 +1132,9 @@ const AdminAnalyticsPage: FC = () => {
                 fullWidth
                 label="Target User"
                 select
-                inputProps={{ 'aria-label': 'Select target user for analytics' }}
+                inputProps={{
+                  'aria-label': 'Select target user for analytics',
+                }}
                 value={selectedUserExists ? targetUserId : ''}
                 onChange={(event) => setTargetUserId(event.target.value)}
                 helperText="Select a user account to inspect analytics"
@@ -1262,7 +1264,9 @@ const AdminAnalyticsPage: FC = () => {
               disabled={recalculatingTrending}
               sx={{ minHeight: 44 }}
             >
-              {recalculatingTrending ? 'Recalculating...' : 'Recalculate Scores'}
+              {recalculatingTrending
+                ? 'Recalculating...'
+                : 'Recalculate Scores'}
             </Button>
           ) : null}
 
@@ -1874,7 +1878,10 @@ const AdminAnalyticsPage: FC = () => {
                             flexWrap: 'wrap',
                           }}
                         >
-                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          <Typography
+                            variant="subtitle1"
+                            sx={{ fontWeight: 700 }}
+                          >
                             #{item.rank} {item.subject}
                           </Typography>
                           <Typography variant="subtitle2" color="primary.main">

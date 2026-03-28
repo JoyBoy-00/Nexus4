@@ -11,55 +11,50 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly logger: WinstonLoggerService) {}
 
   async onModuleInit() {
-    const disableRedisEnv = process.env.DISABLE_REDIS;
     const redisUrl = process.env.REDIS_URL;
-    const redisHost = process.env.REDIS_HOST;
-    const redisPort = process.env.REDIS_PORT
-      ? parseInt(process.env.REDIS_PORT, 10)
-      : 6379;
+    let client, subscriber, publisher;
+    if (redisUrl) {
+      const isTls = redisUrl.startsWith('rediss://');
 
-    const disableRedis =
-      disableRedisEnv === 'true' ||
-      disableRedisEnv === '1' ||
-      (!redisUrl && !redisHost);
+      const options = {
+        tls: isTls ? { rejectUnauthorized: false } : undefined,
+        maxRetriesPerRequest: null,
+        retryStrategy: (times: number) => {
+          const delay = Math.min(times * 100, 2000);
+          if (times > 5) return null;
+          return delay;
+        },
+      };
 
-    if (disableRedis) {
-      this.logger.log(
-        '🔇 Redis bypassed - using in-memory mock clients',
-        'RedisService',
-      );
-      this.client = this.createMockRedisClient();
-      this.subscriber = this.createMockRedisClient();
-      this.publisher = this.createMockRedisClient();
-      return;
+      client = new Redis(redisUrl, options);
+      subscriber = new Redis(redisUrl, options);
+      publisher = new Redis(redisUrl, options);
+    } else {
+      const redisConfig = {
+        url: process.env.REDIS_URL,
+        retryStrategy: (times: number) => {
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+        },
+        maxRetriesPerRequest: 3,
+      };
+      client = new Redis(redisConfig);
+      subscriber = new Redis(redisConfig);
+      publisher = new Redis(redisConfig);
     }
+    this.client = client;
+    this.subscriber = subscriber;
+    this.publisher = publisher;
 
-    try {
-      if (redisUrl) {
-        this.logger.log('🔌 Redis enabled via REDIS_URL', 'RedisService');
-        this.client = new Redis(redisUrl);
-        this.subscriber = new Redis(redisUrl);
-        this.publisher = new Redis(redisUrl);
-      } else {
-        this.logger.log(
-          `🔌 Redis enabled via host/port (${redisHost}:${redisPort})`,
-          'RedisService',
-        );
-        this.client = new Redis({ host: redisHost, port: redisPort });
-        this.subscriber = new Redis({ host: redisHost, port: redisPort });
-        this.publisher = new Redis({ host: redisHost, port: redisPort });
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Redis initialization failed, falling back to mock clients: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-        'RedisService',
-      );
-      this.client = this.createMockRedisClient();
-      this.subscriber = this.createMockRedisClient();
-      this.publisher = this.createMockRedisClient();
-    }
+    this.client.on('connect', () => {
+      this.logger.log('✅ Redis client connected', 'RedisService');
+    });
+
+    this.client.on('error', (error) => {
+      this.logger.error('Redis client error', error.stack, 'RedisService');
+    });
+
+    this.logger.log('Redis service initialized', 'RedisService');
   }
 
   async onModuleDestroy() {
@@ -307,42 +302,5 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
    */
   async invalidateCache(pattern: string): Promise<number> {
     return this.delByPattern(pattern);
-  }
-
-  /**
-   * Create a mock Redis client for development when Redis is not available
-   */
-  private createMockRedisClient(): any {
-    return {
-      on: () => {},
-      connect: () => Promise.resolve(),
-      disconnect: () => Promise.resolve(),
-      quit: () => Promise.resolve(),
-      get: () => Promise.resolve(null),
-      set: () => Promise.resolve('OK'),
-      setex: () => Promise.resolve('OK'),
-      del: () => Promise.resolve(1),
-      exists: () => Promise.resolve(0),
-      expire: () => Promise.resolve(1),
-      ttl: () => Promise.resolve(-1),
-      incr: () => Promise.resolve(1),
-      decr: () => Promise.resolve(0),
-      keys: () => Promise.resolve([]),
-      publish: () => Promise.resolve(1),
-      subscribe: () => {},
-      unsubscribe: () => {},
-      hset: () => Promise.resolve(1),
-      hget: () => Promise.resolve(null),
-      hgetall: () => Promise.resolve({}),
-      hdel: () => Promise.resolve(1),
-      sadd: () => Promise.resolve(1),
-      srem: () => Promise.resolve(1),
-      sismember: () => Promise.resolve(0),
-      smembers: () => Promise.resolve([]),
-      zadd: () => Promise.resolve(1),
-      zrem: () => Promise.resolve(1),
-      zrangebyscore: () => Promise.resolve([]),
-      zremrangebyscore: () => Promise.resolve(0),
-    };
   }
 }

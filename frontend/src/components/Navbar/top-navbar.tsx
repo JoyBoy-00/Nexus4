@@ -45,6 +45,10 @@ const TopNavbar: FC = () => {
             <img
               src="/nexus.webp"
               alt="Nexus Logo"
+              width="40"
+              height="40"
+              decoding="async"
+              fetchPriority="high"
               className="w-full h-full object-contain"
             />
           </motion.div>

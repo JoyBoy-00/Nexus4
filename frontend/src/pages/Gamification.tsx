@@ -33,6 +33,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGamification } from '../contexts/GamificationContext';
 import { ProfileNameLink } from '@/utils/ProfileNameLink';
 import { Role } from '@/types/profileType';
+import { buildProfilePath } from '@/utils/profileRoute';
 
 interface LeaderboardEntry {
   userId: string;
@@ -501,7 +502,10 @@ const GamificationPage: FC = () => {
                           }}
                           onClick={() => {
                             // Navigate to user profile
-                            window.location.href = `/profile/${entry.userId}`;
+                            window.location.href = buildProfilePath({
+                              id: entry.userId,
+                              name: entry.user?.name,
+                            });
                           }}
                         >
                           {entry.user?.name?.charAt(0).toUpperCase()}
@@ -516,6 +520,7 @@ const GamificationPage: FC = () => {
                               name: entry.user?.name || 'Anonymous User',
                               role: entry.user?.role || undefined,
                             }}
+                            showProfilePopup={false}
                             variant="body1"
                             fontWeight={600}
                           />

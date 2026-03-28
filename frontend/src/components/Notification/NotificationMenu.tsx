@@ -16,17 +16,19 @@ import {
   ListItemAvatar,
 } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
-import CheckIcon from '@mui/icons-material/Check';
-import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import ChatBubbleIcon from '@mui/icons-material/ChatBubble';
-import MailIcon from '@mui/icons-material/Mail';
-import SettingsIcon from '@mui/icons-material/Settings';
-import EventAvailableIcon from '@mui/icons-material/EventAvailable';
-import HandshakeIcon from '@mui/icons-material/Handshake';
-import InfoIcon from '@mui/icons-material/Info';
+import {
+  Check,
+  Bell,
+  UserPlus,
+  Users,
+  Heart,
+  MessageCircle,
+  Mail,
+  Settings,
+  CalendarCheck,
+  Handshake,
+  Info,
+} from 'lucide-react';
 import { FC, Fragment, useCallback, useEffect, useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
@@ -153,25 +155,25 @@ const NotificationMenu: FC<NotificationMenuProps> = ({
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
       case NotificationType.CONNECTION_REQUEST:
-        return <PersonAddIcon fontSize="small" />;
+        return <UserPlus size={16} />;
       case NotificationType.CONNECTION_ACCEPTED:
-        return <PeopleAltIcon fontSize="small" />;
+        return <Users size={16} />;
       case NotificationType.POST_VOTE:
-        return <FavoriteIcon fontSize="small" />;
+        return <Heart size={16} />;
       case NotificationType.POST_COMMENT:
-        return <ChatBubbleIcon fontSize="small" />;
+        return <MessageCircle size={16} />;
       case NotificationType.MESSAGE:
-        return <MailIcon fontSize="small" />;
+        return <Mail size={16} />;
       case NotificationType.SYSTEM:
-        return <SettingsIcon fontSize="small" />;
+        return <Settings size={16} />;
       case NotificationType.EVENT:
-        return <EventAvailableIcon fontSize="small" />;
+        return <CalendarCheck size={16} />;
       case NotificationType.REFERRAL_APPLICATION:
       case NotificationType.REFERRAL_STATUS_UPDATE:
       case NotificationType.REFERRAL_APPLICATION_STATUS_UPDATE:
-        return <HandshakeIcon fontSize="small" />;
+        return <Handshake size={16} />;
       default:
-        return <InfoIcon fontSize="small" />;
+        return <Info size={16} />;
     }
   };
 
@@ -222,7 +224,7 @@ const NotificationMenu: FC<NotificationMenuProps> = ({
           </Typography>
           {unreadCount > 0 && (
             <Button
-              startIcon={<CheckIcon />}
+              startIcon={<Check size={16} />}
               onClick={handleMarkAllAsRead}
               size="small"
               sx={markAllSx}
@@ -245,6 +247,9 @@ const NotificationMenu: FC<NotificationMenuProps> = ({
             borderRadius: 8,
           },
         }}
+        role="region"
+        aria-live="polite"
+        aria-label="Notifications list"
       >
         {loadingPreview ? (
           <Box display="flex" justifyContent="center" p={3}>
@@ -272,7 +277,7 @@ const NotificationMenu: FC<NotificationMenuProps> = ({
                 boxShadow: 'none',
               }}
             >
-              <NotificationsNoneOutlinedIcon fontSize="large" />
+              <Bell size={32} />
             </Avatar>
             <Typography variant="subtitle1" sx={{ mt: 0.5 }}>
               You're all caught up

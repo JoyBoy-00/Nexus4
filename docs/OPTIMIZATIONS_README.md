@@ -250,3 +250,129 @@ DATABASE_CONNECTION_LIMIT=30 pnpm run start:prod
 ---
 
 **Ready to deploy? Read COMPLETE_AUDIT.md for the full checklist!** ✅
+
+## Frontend Refactor Optimization Techniques (March 2026)
+
+### Completed Techniques
+
+- WebSocket service consolidation:
+  - Verified active usage of `websocket.improved.ts` and removed unused legacy services (`websocket.ts`, `websocket.production.ts`).
+  - Optimization impact: reduced maintenance surface, removed dead code paths, and lowered risk of runtime divergence.
+
+- Large page decomposition (Connections):
+  - Refactored `Connections.tsx` from monolithic structure into focused components:
+    - `ConnectionsHeader.tsx`
+    - `ConnectionsFilters.tsx`
+    - `ConnectionsTable.tsx`
+    - `ConnectionsEmptyState.tsx`
+    - `ProfilePreviewDialog.tsx`
+  - Optimization impact: improved render isolation, easier memoization opportunities, and smaller files for faster iteration.
+
+- Build hygiene optimization:
+  - Removed unused imports (`CloseIcon`, `PeopleIcon`) after extraction.
+  - Optimization impact: clean TypeScript build path and reduced lint noise for faster CI feedback.
+
+- Smoke test baseline for refactor safety:
+  - Added and passed smoke tests for extracted Connections components.
+  - Optimization impact: lower regression risk while doing high-churn refactors.
+
+### In-Progress Techniques
+
+- Context decomposition strategy (Showcase):
+  - Extracting context concerns into focused hooks under `src/contexts/hooks`.
+  - Implemented foundational hooks:
+    - `useShowcaseLoadingState`
+    - `useShowcaseCache`
+    - `useShowcaseTypes`
+    - `useShowcaseCollaboration`
+    - `useShowcaseEngagement`
+  - Added smoke tests for extracted hooks.
+
+- Next optimization step:
+  - Rewire `ShowcaseContext.tsx` to compose extracted hooks while preserving current public context contract.
+
+
+### Update (March 2026 - Showcase Context)
+
+- Integrated extracted hooks into `ShowcaseContext.tsx` for loading, project types, and collaboration.
+- Removed duplicate collaboration implementation from provider body.
+- Result: safer incremental decomposition with no TypeScript regressions.
+
+
+### Update (March 2026 - Showcase Cache Context)
+
+- Integrated cache-domain composition from `useShowcaseCache` into `ShowcaseContext.tsx`.
+- Removed duplicated in-provider cache helper responsibilities and switched to hook-backed invalidation paths.
+- Result: smaller provider core and cleaner concern boundaries.
+
+
+### Update (March 2026 - Showcase Engagement Context)
+
+- Integrated engagement-domain composition from `useShowcaseEngagement` into `ShowcaseContext.tsx`.
+- Replaced local comments/updates/seeking handlers with hook-based implementations.
+- Result: improved modularity and safer incremental maintenance.
+
+
+### Update (March 2026 - Showcase Team Members Context)
+
+- Integrated team-member domain composition from `useShowcaseTeamMembers` into `ShowcaseContext.tsx`.
+- Removed local team-member callbacks from provider body.
+- Result: clearer team-member lifecycle ownership and reduced context branching.
+
+
+### Update (March 2026 - Showcase Reactions Context)
+
+- Integrated reactions-domain composition from `useShowcaseProjectReactions` into `ShowcaseContext.tsx`.
+- Replaced local support/follow mutation callbacks with hook-based implementations.
+- Result: cleaner modular boundaries for project engagement mutations.
+
+
+### Update (March 2026 - Showcase Project Core Context)
+
+- Introduced `useShowcaseProjectCore` to isolate the main project CRUD and fetch orchestration from `ShowcaseContext.tsx`.
+- Provider now acts primarily as composition/orchestration layer.
+- Result: substantial line-count reduction and improved maintainability of project-domain logic.
+
+
+### Update (March 2026 - SubCommunity Context Decomposition Pass 1)
+
+- Extracted membership and request workflows into `useSubCommunityMembership`.
+- Extracted grouped my-communities loading into `useSubCommunityMyCommunities`.
+- Provider now composes both hooks while preserving context contract.
+- Result: `SubCommunityContext.tsx` reduced from 1434 to 1112 lines in this pass.
+
+
+### Update (March 2026 - SubCommunity Context Decomposition Pass 2)
+
+- Extracted listing/filter/cache/pagination orchestration into `useSubCommunityTypeListing`.
+- Retained provider API surface while removing the largest remaining inline callback cluster.
+- Result: `SubCommunityContext.tsx` reduced from 1112 to 613 lines in this pass.
+
+
+### Update (March 2026 - SubCommunityFeedPage Decomposition Pass 1)
+
+- Extracted `SubCommunityPostsList` and `SubCommunityMembersList` from the monolithic feed page.
+- Page now delegates tab list rendering to focused components while keeping existing interactions and menus intact.
+- Result: `SubCommunityFeedPage.tsx` reduced from 1492 to 1103 lines in this pass.
+
+
+### Update (March 2026 - SubCommunityFeedPage Decomposition Pass 2)
+
+- Extracted `SubCommunityHeaderSection` for banner/navigation/member actions and `SubCommunityAboutCard` for about tab content.
+- Preserved existing page behavior and menu/dialog wiring while reducing inline JSX complexity.
+- Result: `SubCommunityFeedPage.tsx` reduced from 1103 to 808 lines in this pass.
+
+
+### Update (March 2026 - ProjectDetailsCard Decomposition Pass 1)
+
+- Extracted `ProjectOverviewSection` for the main overview and metrics/action sidebar.
+- Extracted `ProjectDetailFooterActions` for bottom action controls.
+- Result: `ProjectDetailsCard.tsx` reduced from 1504 to 1089 lines in this pass.
+
+
+### Update (March 2026 - Referrals Decomposition Pass 1)
+
+- Extracted `ReferralsToolbar`, `ReferralCard`, and `MyApplicationsSection` from `Referrals.tsx`.
+- Preserved existing behavior while reducing page-level monolith size and improving section ownership.
+- Result: `Referrals.tsx` reduced from 1580 to 1055 lines in this pass.
+

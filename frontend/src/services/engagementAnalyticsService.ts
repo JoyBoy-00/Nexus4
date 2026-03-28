@@ -89,10 +89,7 @@ export interface ContentPerformanceResponse {
 }
 
 const engagementAnalyticsService = {
-  getSummary: (
-    userId: string,
-    period: EngagementAnalyticsPeriod = '30d',
-  ) =>
+  getSummary: (userId: string, period: EngagementAnalyticsPeriod = '30d') =>
     api.get<EngagementSummaryResponse>('/analytics/engagement/summary', {
       params: { userId, period },
     }),
@@ -110,13 +107,13 @@ const engagementAnalyticsService = {
   getContentPerformance: (
     userId: string,
     page: number = 1,
-    limit: number = 10,
+    limit: number = 10
   ) =>
     api.get<ContentPerformanceResponse>(
       '/analytics/engagement/content-performance',
       {
         params: { userId, page, limit },
-      },
+      }
     ),
 };
 

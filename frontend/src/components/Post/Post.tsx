@@ -43,6 +43,7 @@ import { VoteType } from '@/types/engagement';
 import { ProfileNameLink } from '@/utils/ProfileNameLink';
 import { useNotification } from '@/contexts/NotificationContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { buildProfilePath } from '@/utils/profileRoute';
 
 interface PostProps {
   post: PostType;
@@ -243,6 +244,12 @@ export const Post: FC<PostProps> = ({
   const isAuthor = user?.id === post.author.id;
   const isAdmin = user?.role === 'ADMIN';
   const isCompactCard = compactMode && !isPostPage;
+  const currentPath = window.location.pathname;
+  const ownProfilePath = buildProfilePath({ id: user?.id, name: user?.name });
+  const isOnOwnProfilePath =
+    currentPath === '/profile' ||
+    currentPath === ownProfilePath ||
+    currentPath === `/profile/${user?.id}`;
   const postContentClass = isDark
     ? `text-neutral-300 ${isCompactCard ? 'text-[0.68rem]' : 'text-sm'} mb-2 leading-relaxed`
     : `text-gray-700 ${isCompactCard ? 'text-[0.68rem]' : 'text-sm'} mb-2 leading-relaxed`;
@@ -266,7 +273,10 @@ export const Post: FC<PostProps> = ({
         }}
         avatar={
           <Link
-            to={`/profile/${post.author.id}`}
+            to={buildProfilePath({
+              id: post.author.id,
+              name: post.author.name,
+            })}
             style={{ textDecoration: 'none' }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -353,16 +363,12 @@ export const Post: FC<PostProps> = ({
               profile: post.author.profile,
             }}
             showRoleBadge={
-              window.location.pathname !== `/users/${user?.id}/posts` &&
-              window.location.pathname !== `/profile` &&
-              window.location.pathname !== `/profile/${user?.id}` // hide role badge on own profile and posts page
+              currentPath !== `/users/${user?.id}/posts` && !isOnOwnProfilePath
             }
             showYouBadge={
-              window.location.pathname !== `/profile` &&
-              window.location.pathname !== `/users/${user?.id}/posts` &&
-              window.location.pathname !== `/profile/${user?.id}` // hide "You" badge on own profile and posts page
+              !isOnOwnProfilePath && currentPath !== `/users/${user?.id}/posts`
             }
-            linkToProfile={window.location.pathname === `/posts/${post.id}`}
+            linkToProfile={currentPath === `/posts/${post.id}`}
             variant="h6"
             fontSize={isCompactCard ? '0.86rem' : '1.35rem'}
           />

@@ -1,4 +1,4 @@
-import { FC, useState, useMemo, lazy, Suspense, memo } from 'react';
+import { FC, useState, useMemo, lazy, Suspense, memo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Chip,
@@ -58,6 +58,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
   onCollaborate,
   onViewDetails,
 }) => {
+  const FALLBACK_IMAGE = '/default-project.png';
   const { isDark } = useTheme();
   const { deleteProject, getProjectById, projectById } = useShowcase();
   const { showNotification } = useNotification();
@@ -67,10 +68,16 @@ const ProjectCard: FC<ProjectCardProps> = ({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
-  const [imageSrc, setImageSrc] = useState<string | undefined>(
-    project.imageUrl
+  const [imageSrc, setImageSrc] = useState<string>(
+    project.imageUrl || FALLBACK_IMAGE
   );
   const [triedProxy, setTriedProxy] = useState(false);
+
+  useEffect(() => {
+    setImgLoaded(false);
+    setTriedProxy(false);
+    setImageSrc(project.imageUrl || FALLBACK_IMAGE);
+  }, [project.id, project.imageUrl]);
 
   // lazy-load UpdateSection so we don't add a hard dependency at top
   const UpdateSection = useMemo(
@@ -121,8 +128,8 @@ const ProjectCard: FC<ProjectCardProps> = ({
   // Support both possible spellings used in codebase: seekingCollaboration or seekingCOllaboration
   const seeking = Boolean(
     (project as unknown as Record<string, unknown>)['seekingCollaboration'] ??
-    (project as unknown as Record<string, unknown>)['seekingCOllaboration'] ??
-    false
+      (project as unknown as Record<string, unknown>)['seekingCOllaboration'] ??
+      false
   );
 
   // Centralized delete handler: use context action.
@@ -264,7 +271,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                   }
                 }
 
-                setImageSrc('/default-project.png');
+                setImageSrc(FALLBACK_IMAGE);
                 setImgLoaded(true);
               }}
               style={{
@@ -372,6 +379,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                     avatarUrl: project.owner?.profile?.avatarUrl || '',
                   },
                 }}
+                showProfilePopup={false}
                 avatarSize={30}
                 showRoleBadge={false}
                 showYouBadge={false}
@@ -532,6 +540,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                           handleUpdateClick(e);
                         }}
                         onMouseDown={(e) => e.preventDefault()}
+                        aria-label="Update project"
                         sx={{
                           width: 36,
                           height: 36,
@@ -553,6 +562,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                           setConfirmDeleteOpen(true);
                         }}
                         onMouseDown={(e) => e.preventDefault()}
+                        aria-label="Delete project"
                         sx={{
                           width: 36,
                           height: 36,
@@ -593,6 +603,7 @@ const ProjectCard: FC<ProjectCardProps> = ({
                           avatarUrl: project.owner?.profile?.avatarUrl || '',
                         },
                       }}
+                      showProfilePopup={false}
                       avatarSize={40}
                       linkToProfile={false}
                       showAvatar
