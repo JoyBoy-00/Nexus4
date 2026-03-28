@@ -27,7 +27,7 @@ const MetricToggle: FC<MetricToggleProps> = ({ options, onToggle }) => {
 
   const enabledCount = useMemo(
     () => options.filter((item) => item.enabled).length,
-    [options],
+    [options]
   );
 
   const handleOpen = (event: MouseEvent<HTMLButtonElement>) => {

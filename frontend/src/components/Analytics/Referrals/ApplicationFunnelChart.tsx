@@ -1,21 +1,30 @@
 import { FC, useMemo } from 'react';
 import { Box, Card, CardContent, Chip, Stack, Typography } from '@mui/material';
-import { FunnelChart, Funnel, Tooltip, LabelList, ResponsiveContainer } from 'recharts';
+import {
+  FunnelChart,
+  Funnel,
+  Tooltip,
+  LabelList,
+  ResponsiveContainer,
+} from 'recharts';
 import { ReferralFunnelResponse } from '@/services/referralMentorshipAnalyticsService';
 
 interface ApplicationFunnelChartProps {
   funnelData: ReferralFunnelResponse;
 }
 
-const ApplicationFunnelChart: FC<ApplicationFunnelChartProps> = ({ funnelData }) => {
+const ApplicationFunnelChart: FC<ApplicationFunnelChartProps> = ({
+  funnelData,
+}) => {
   const chartData = useMemo(
-    () => funnelData.funnel.map((stage) => ({
-      name: stage.stage,
-      value: stage.count,
-      dropOffRate: stage.dropOffRate,
-      conversionRate: stage.conversionRate,
-    })),
-    [funnelData],
+    () =>
+      funnelData.funnel.map((stage) => ({
+        name: stage.stage,
+        value: stage.count,
+        dropOffRate: stage.dropOffRate,
+        conversionRate: stage.conversionRate,
+      })),
+    [funnelData]
   );
 
   const summary = `Application funnel with ${chartData.length} stages. First stage ${chartData[0]?.name || 'N/A'} has ${chartData[0]?.value || 0} records.`;
@@ -33,7 +42,12 @@ const ApplicationFunnelChart: FC<ApplicationFunnelChartProps> = ({ funnelData })
               <FunnelChart>
                 <Tooltip />
                 <Funnel dataKey="value" data={chartData} isAnimationActive>
-                  <LabelList position="right" fill="#111" stroke="none" dataKey="name" />
+                  <LabelList
+                    position="right"
+                    fill="#111"
+                    stroke="none"
+                    dataKey="name"
+                  />
                 </Funnel>
               </FunnelChart>
             </ResponsiveContainer>

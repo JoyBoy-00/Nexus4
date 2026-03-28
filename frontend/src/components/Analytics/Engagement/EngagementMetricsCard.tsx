@@ -39,7 +39,9 @@ const EngagementMetricsCard: React.FC<EngagementMetricsCardProps> = ({
   if (!data) {
     return (
       <Paper sx={{ p: 3, mb: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary">No engagement data available</Typography>
+        <Typography color="text.secondary">
+          No engagement data available
+        </Typography>
       </Paper>
     );
   }
@@ -89,7 +91,10 @@ const EngagementMetricsCard: React.FC<EngagementMetricsCardProps> = ({
     <Paper sx={{ p: 3, mb: 3 }}>
       <Stack spacing={3}>
         <Box>
-          <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography
+            variant="h6"
+            sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+          >
             <TrendingUp size={20} />
             Engagement Metrics - {data.period}
           </Typography>
@@ -181,7 +186,10 @@ const EngagementMetricsCard: React.FC<EngagementMetricsCardProps> = ({
                             mb: 1,
                           }}
                         >
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          <Typography
+                            variant="caption"
+                            sx={{ color: 'text.secondary' }}
+                          >
                             Performance
                           </Typography>
                           <Typography
@@ -246,26 +254,42 @@ const EngagementMetricsCard: React.FC<EngagementMetricsCardProps> = ({
               Summary
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Total Engagement Activity: <strong>{data.postsCreated + data.commentsMade + data.votesReceived}</strong> items
+              Total Engagement Activity:{' '}
+              <strong>
+                {data.postsCreated + data.commentsMade + data.votesReceived}
+              </strong>{' '}
+              items
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Average Engagement Rate: <strong>{data.averageEngagementRate.toFixed(2)}%</strong>
+              Average Engagement Rate:{' '}
+              <strong>{data.averageEngagementRate.toFixed(2)}%</strong>
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Content Performance: <strong>{data.contentPerformanceScore.toFixed(1)}</strong> points
+              Content Performance:{' '}
+              <strong>{data.contentPerformanceScore.toFixed(1)}</strong> points
             </Typography>
             {data.averageEngagementRate > 50 && (
-              <Typography variant="caption" sx={{ color: '#43a047', fontWeight: 600, mt: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{ color: '#43a047', fontWeight: 600, mt: 1 }}
+              >
                 ✓ Excellent engagement performance
               </Typography>
             )}
-            {data.averageEngagementRate > 20 && data.averageEngagementRate <= 50 && (
-              <Typography variant="caption" sx={{ color: '#fb8c00', fontWeight: 600, mt: 1 }}>
-                → Good engagement, room for growth
-              </Typography>
-            )}
+            {data.averageEngagementRate > 20 &&
+              data.averageEngagementRate <= 50 && (
+                <Typography
+                  variant="caption"
+                  sx={{ color: '#fb8c00', fontWeight: 600, mt: 1 }}
+                >
+                  → Good engagement, room for growth
+                </Typography>
+              )}
             {data.averageEngagementRate <= 20 && (
-              <Typography variant="caption" sx={{ color: '#e53935', fontWeight: 600, mt: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{ color: '#e53935', fontWeight: 600, mt: 1 }}
+              >
                 ⚠ Consider creating more engaging content
               </Typography>
             )}

@@ -9,7 +9,10 @@ import {
   Stack,
 } from '@mui/material';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { ActivityHeatmapResponse, HeatmapDay } from '../../../services/engagementAnalyticsService';
+import {
+  ActivityHeatmapResponse,
+  HeatmapDay,
+} from '../../../services/engagementAnalyticsService';
 
 interface ActivityHeatmapProps {
   data: ActivityHeatmapResponse;
@@ -216,7 +219,8 @@ const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
                             : 'none',
                       },
                       '&:focus-visible': {
-                        outline: cell.day !== null ? '2px solid #0f172a' : 'none',
+                        outline:
+                          cell.day !== null ? '2px solid #0f172a' : 'none',
                         outlineOffset: 2,
                       },
                     }}

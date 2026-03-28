@@ -61,9 +61,12 @@ const connectionAnalyticsService = {
     ),
 
   getStrengthScore: (userId: string) =>
-    api.get<ConnectionStrengthResponse>('/analytics/connections/strength-score', {
-      params: { userId },
-    }),
+    api.get<ConnectionStrengthResponse>(
+      '/analytics/connections/strength-score',
+      {
+        params: { userId },
+      }
+    ),
 };
 
 export default connectionAnalyticsService;

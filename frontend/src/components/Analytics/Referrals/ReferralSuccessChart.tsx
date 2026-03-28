@@ -39,7 +39,7 @@ const ReferralSuccessChart: FC<ReferralSuccessChartProps> = ({
 }) => {
   const industries = useMemo(
     () => conversion.successByIndustry.map((item) => item.industry),
-    [conversion.successByIndustry],
+    [conversion.successByIndustry]
   );
 
   const lineData = useMemo(() => {
@@ -47,7 +47,7 @@ const ReferralSuccessChart: FC<ReferralSuccessChartProps> = ({
       selectedIndustry === 'ALL'
         ? conversion.successByIndustry
         : conversion.successByIndustry.filter(
-            (item) => item.industry === selectedIndustry,
+            (item) => item.industry === selectedIndustry
           );
 
     return source.map((item) => ({
@@ -65,7 +65,7 @@ const ReferralSuccessChart: FC<ReferralSuccessChartProps> = ({
     const csv = [
       header.join(','),
       ...lineData.map((row) =>
-        [row.industry, row.posted, row.successful, row.successRate].join(','),
+        [row.industry, row.posted, row.successful, row.successRate].join(',')
       ),
     ].join('\n');
 
@@ -99,8 +99,13 @@ const ReferralSuccessChart: FC<ReferralSuccessChartProps> = ({
                 select
                 value={selectedIndustry}
                 onChange={(event) => onIndustryChange(event.target.value)}
-                sx={{ minWidth: 200, '& .MuiInputBase-root': { minHeight: 44 } }}
-                inputProps={{ 'aria-label': 'Select industry for referral success chart' }}
+                sx={{
+                  minWidth: 200,
+                  '& .MuiInputBase-root': { minHeight: 44 },
+                }}
+                inputProps={{
+                  'aria-label': 'Select industry for referral success chart',
+                }}
               >
                 <MenuItem value="ALL">All Industries</MenuItem>
                 {industries.map((industry) => (
@@ -133,7 +138,11 @@ const ReferralSuccessChart: FC<ReferralSuccessChartProps> = ({
                   <Legend />
                   <Bar dataKey="posted" fill="#1976d2" name="Posted" />
                   <Bar dataKey="successful" fill="#2e7d32" name="Successful" />
-                  <Bar dataKey="successRate" fill="#ed6c02" name="Success Rate %" />
+                  <Bar
+                    dataKey="successRate"
+                    fill="#ed6c02"
+                    name="Success Rate %"
+                  />
                 </BarChart>
               ) : (
                 <LineChart data={lineData}>
@@ -142,7 +151,12 @@ const ReferralSuccessChart: FC<ReferralSuccessChartProps> = ({
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="posted" stroke="#1976d2" name="Posted" />
+                  <Line
+                    type="monotone"
+                    dataKey="posted"
+                    stroke="#1976d2"
+                    name="Posted"
+                  />
                   <Line
                     type="monotone"
                     dataKey="successful"

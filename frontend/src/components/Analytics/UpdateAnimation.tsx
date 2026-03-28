@@ -2,7 +2,8 @@ import { FC, useEffect, useRef, useState } from 'react';
 import { Typography } from '@mui/material';
 import type { TypographyProps } from '@mui/material';
 
-export interface UpdateAnimationProps extends Omit<TypographyProps, 'children'> {
+export interface UpdateAnimationProps
+  extends Omit<TypographyProps, 'children'> {
   /** The numeric value to display and animate toward. */
   value: number;
   /** Animation duration in milliseconds. Defaults to 800. */

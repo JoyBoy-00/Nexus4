@@ -36,7 +36,8 @@ const exportPng = async (svgEl: SVGSVGElement, fileName: string) => {
 
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
-    image.onerror = () => reject(new Error('Failed to load SVG for PNG export'));
+    image.onerror = () =>
+      reject(new Error('Failed to load SVG for PNG export'));
     image.src = svgUrl;
   });
 
@@ -58,7 +59,7 @@ const exportPng = async (svgEl: SVGSVGElement, fileName: string) => {
   URL.revokeObjectURL(svgUrl);
 
   const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, 'image/png', 1),
+    canvas.toBlob(resolve, 'image/png', 1)
   );
 
   if (!blob) throw new Error('Failed to generate PNG blob');
@@ -111,8 +112,22 @@ const ExportButton: FC<ExportButtonProps> = ({ containerRef, fileName }) => {
         Export Chart
       </Button>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-        <MenuItem sx={{ minHeight: 44 }} onClick={() => { void handleExport('png'); }}>PNG</MenuItem>
-        <MenuItem sx={{ minHeight: 44 }} onClick={() => { void handleExport('svg'); }}>SVG</MenuItem>
+        <MenuItem
+          sx={{ minHeight: 44 }}
+          onClick={() => {
+            void handleExport('png');
+          }}
+        >
+          PNG
+        </MenuItem>
+        <MenuItem
+          sx={{ minHeight: 44 }}
+          onClick={() => {
+            void handleExport('svg');
+          }}
+        >
+          SVG
+        </MenuItem>
       </Menu>
     </>
   );

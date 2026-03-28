@@ -237,7 +237,7 @@ const MySubCommunityPage: FC = () => {
               topic: topic.topic,
               postCount: topic.postCount,
               trendDirection: topic.trendDirection,
-            })),
+            }))
           );
         }
       } catch (error) {
@@ -276,7 +276,7 @@ const MySubCommunityPage: FC = () => {
             : '/subcommunities/my/member';
       navigate(`${base}?${params.toString()}`);
     },
-    [activeTab, location.search, navigate],
+    [activeTab, location.search, navigate]
   );
 
   useEffect(() => {
@@ -414,7 +414,11 @@ const MySubCommunityPage: FC = () => {
           options={topicSuggestions}
           filterOptions={(options) => options}
           loading={loadingSuggestions}
-          noOptionsText={search.trim().length < 2 ? 'Type at least 2 characters' : 'No topic suggestions'}
+          noOptionsText={
+            search.trim().length < 2
+              ? 'Type at least 2 characters'
+              : 'No topic suggestions'
+          }
           getOptionLabel={(option) =>
             typeof option === 'string' ? option : option.topic
           }
