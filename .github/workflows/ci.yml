@@ -42,6 +42,8 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm install
+      - name: Generate Prisma client (pinned)
+        run: npx --yes prisma@6.18.0 generate
       - name: Run linter
         run: npm run lint
       # - name: Run tests
